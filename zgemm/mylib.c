@@ -8,13 +8,38 @@
 #include <math.h>
 #include <dlfcn.h>
 #include <stdbool.h>
+#include <omp.h>
 
+// disable THP
+#include <sys/prctl.h> 
+
+#ifdef INIT_IN_MPI
 #include <mpi.h>
+#endif
 
-static void (*orig_zgemm)()=NULL; 
-cublasStatus_t status;
-cublasHandle_t handle;
-cudaStream_t stream;
+
+#define GiB 1024*1024*1024;
+#define MiB 1024*1024;
+#define KiB 1024;
+
+#define CUDA_CHECK(call)                                                  \
+do {                                                                      \
+    cudaError_t error = call;                                             \
+    if (error != cudaSuccess) {                                           \
+        fprintf(stderr, "CUDA error: %s:%d, ", __FILE__, __LINE__);       \
+        fprintf(stderr, "code: %d, reason: %s\n", error,                  \
+                cudaGetErrorString(error));                               \
+        exit(1);                                                          \
+    }                                                                     \
+} while (0)
+
+#ifdef PROFILE
+#define PROFILE(code) code
+#else
+#define PROFILE(code)
+#endif
+
+
 
 int is_MPI=0;
 int rank=-1; 
@@ -45,6 +70,12 @@ extern double mysecond();
 #define NUMA_HBM 1
 //#define PAGE_SIZE sysconf(_SC_PAGESIZE)
 
+
+double mtime_total=0.0;
+double mtime_comput=0.0;
+double mtime_dmove=0.0;
+double mvol_dmove=0.0; //in GB
+
 int which_numa(double *var) {
  void * ptr_to_check = var;
  int status[1];
@@ -56,42 +87,78 @@ int which_numa(double *var) {
  return status[0];
 }
 
-void move_numa(double *ptr, unsigned long size, int target_node) {
+void move_numa(double *ptr, size_t size, int target_node) {
 // size in Bytes
     //printf("size in move_numa=%d, array size=%d\n",size, size/8);
     double tnuma=mysecond();
     int PAGE_SIZE = getpagesize();
-    unsigned long num_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
+    int rc=0;
+    size_t num_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
     int *status = malloc(num_pages*sizeof(int));
     int *nodes = malloc(num_pages*sizeof(int));
-    // Allocate an array to store page addresses
     void **page_addrs = malloc(num_pages * sizeof(void *));
-    if (page_addrs == NULL) {
-        // Handle allocation failure
-        return;
-    }
 
     // Populate the array with page addresses
-    for (unsigned long i = 0; i < num_pages; i++) {
+    #pragma omp parallel for
+    for (size_t i = 0; i < num_pages; i++) {
         page_addrs[i] = ptr + (i * PAGE_SIZE / sizeof(double));
         nodes[i]=target_node;
         status[i]=-1;
     }
-
-    // Call move_pages once with the array of page addresses
-    move_pages(0 /*self memory*/, num_pages, page_addrs, nodes, status, 0);
-    //printf("status code\n");
-    //for (int i =0; i<num_pages; i++) printf("%d:%d\n",i,status[i]);
-
-    // Free the allocated array
+//    rc=move_pages(0 /*self memory*/, num_pages, page_addrs, nodes, status, 0);
+/*
+    if(rc!=0) {
+        if(rc > 0) fprintf(stderr, "warning: %d pages not moved\n", rc); 
+        if(rc < 0) {fprintf(stderr, "error: page migration failed\n"); exit(-1);} 
+    }
     free(page_addrs);
+*/
+
+
+/// test 
+    #pragma omp parallel
+    {
+        int thread_rc = 0;
+        #pragma omp for
+        for (size_t i = 0; i < num_pages; i += omp_get_num_threads()) {
+            size_t start = i;
+            size_t end = ((i + omp_get_num_threads()) < num_pages) ? (i + omp_get_num_threads()) : num_pages;
+            thread_rc = move_pages(0 /*self memory*/, end - start, &page_addrs[start], &nodes[start], &status[start], 0);
+            if (thread_rc != 0) {
+                #pragma omp critical
+                {
+                    if (thread_rc > 0) fprintf(stderr, "warning: %d pages not moved\n", thread_rc);
+                    if (thread_rc < 0) {
+                        fprintf(stderr, "error: page migration failed\n");
+                        exit(-1);
+                    }
+                }
+            }
+        }
+        #pragma omp critical
+        {
+            rc += thread_rc;
+        }
+    }
+/// test
+
 
     tnuma=mysecond()-tnuma;
     //printf("element numa\n");
     //for (int i =0; i<size/8; i++) printf("%d %d\n",i,which_numa(ptr+i));
     printf("move_numa time %15.6f of %lu pages\n", tnuma, num_pages);
+    mtime_dmove+=tnuma;
     return;
 }
+
+
+static void (*orig_zgemm)()=NULL; 
+cublasStatus_t status;
+cublasHandle_t handle;
+cudaStream_t stream;
+
+
+
 
 
 
@@ -99,141 +166,169 @@ void zgemm_( const char* transa, const char* transb, const int* m, const int* n,
                  const void* alpha, const void* A, const int* lda, const void* B, const int* ldb, 
                  const void* beta, void* C, const int* ldc) {
 
-    callcount++;
-    //if(callcount>90470) exit(0);
-    if ( is_MPI && rank==-1 ) MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    iprint=((!is_MPI || rank==0) && (callcount<90470 && callcount>90300));
-     iprint=0;
+    mtime_total-=mysecond();
+   iprint=0;
 
-    double avgn=cbrt(*m)*cbrt(*n)*cbrt(*k);
+   double avgn=cbrt(*m)*cbrt(*n)*cbrt(*k);
+
+   int size_type = sizeof(cuDoubleComplex); //for complex
+   size_t sizeA = (transa[0] == 'N'||transa[0] == 'n') ? ((*k) * (*lda)) : ((*m) * (*lda));
+   size_t sizeB = (transb[0] == 'N'||transb[0] == 'n') ? ((*n) * (*ldb)) : ((*k) * (*ldb));
+   size_t sizeC = (*n) * (*ldc);
+   sizeA *= size_type;
+   sizeB *= size_type;
+   sizeC *= size_type;
+   double zgemm_mem_size_mb = ((double)sizeA+(double)sizeB+(double)sizeC) / 1024.0 / 1024.0;
+   cuDoubleComplex *beta2=(cuDoubleComplex *)beta;
+   double beta_abs = cuCabs( *beta2);
+   int ic = (beta_abs > 0.00000001) ? 2:1; 
+   mvol_dmove+=((double)sizeA+(double)sizeB+(ic)*(double)sizeC)/1024.0/1024.0/1024.0; 
+
     if(avgn<500)  {
-         if(iprint) printf("cpu: zgemm: %s %s %d %d %d  mmem: %d MB\n",transa, transb, *m, *n, *k, ((*m)*(*k)+(*k)*(*n)+(*m)*(*n))/1024/1024*8*2);
+    //     printf("%s %.1f\n", "zgemm on cpu", avgn);
+         mtime_comput-=mysecond();
          orig_zgemm(transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc); 
-
-       cuDoubleComplex *d_A, *d_B, *d_C;
-       d_A=A;
-       d_B=B;
-       d_C=C;
-       if(iprint){
-       printf("zgemm-%lu, A matrix on cpu:\n", callcount);
-       for (int i=0;i<5;i++) {
-          for (int j=0;j<5;j++) { 
-            int index=i*(*n)+j;
-            printf("%10.6f %10.6f ", cuCreal(d_A[index]), cuCimag(d_A[index]));
-          }
-          printf("\n");
-       }
-       printf("zgemm-%lu, B matrix on cpu:\n", callcount);
-       for (int i=0;i<5;i++) {
-          for (int j=0;j<5;j++) { 
-            int index=i*(*n)+j;
-            printf("%10.6f %10.6f ", cuCreal(d_B[index]), cuCimag(d_B[index]));
-          }
-          printf("\n");
-       }
-       printf("zgemm-%lu, C matrix on cpu:\n", callcount);
-       for (int i=0;i<5;i++) {
-          for (int j=0;j<5;j++) { 
-            int index=i*(*n)+j;
-            printf("%10.6f %10.6f ", cuCreal(d_C[index]), cuCimag(d_C[index]));
-          }
-          printf("\n");
-       }
-       printf("\n");
-       }
-    
-
-          return;
+         mtime_comput+=mysecond();
+         mtime_total+=mysecond();
+         return;
     }
-    if(iprint) printf("gpu: zgemm: %s %s %d %d %d  mmem: %d MB\n",transa, transb, *m, *n, *k, ((*m)*(*k)+(*k)*(*n)+(*m)*(*n))/1024/1024*8*2);
+
+   printf("gpu: zgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, lda=%d, ldb=%d, ldc=%d\n",
+        *transa, *transb, *m, *n, *k, *lda, *ldb, *ldc);
+/*
+   // alpla and beta are complex
+   printf("gpu: zgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=%.1f, lda=%d, ldb=%d, beta=%.1f, ldc=%d\n",
+        *transa, *transb, *m, *n, *k, *alpha, *lda, *ldb, *beta, *ldc);
+*/
+
 
     cublasOperation_t transA = (transa[0] == 'N' || transa[0] == 'n') ? CUBLAS_OP_N : CUBLAS_OP_T;
-    cublasOperation_t transB = (transb[0] == 'N' || transb[0] == 'n') ? CUBLAS_OP_N : CUBLAS_OP_T;
+    cublasOperation_t transB = (transb[0] == 'N' || transb[0] == 'n') ? CUBLAS_OP_N : CUBLAS_OP_T; // forgot about H
 
+/*
 #ifdef GPUCOPY
     cuDoubleComplex *d_A, *d_B, *d_C;
-    cudaMallocAsync((cuDoubleComplex **)&d_A, (*m) * (*k) * sizeof(cuDoubleComplex), stream);
-    cudaMallocAsync((cuDoubleComplex **)&d_B, (*k) * (*n) * sizeof(cuDoubleComplex), stream);
-    cudaMallocAsync((cuDoubleComplex **)&d_C, (*m) * (*n) * sizeof(cuDoubleComplex), stream);
-    cudaMemcpyAsync(d_A, A, (*m) * (*k) * sizeof(cuDoubleComplex), cudaMemcpyHostToDevice, stream);
-    cudaMemcpyAsync(d_B, B, (*k) * (*n) * sizeof(cuDoubleComplex), cudaMemcpyHostToDevice, stream);
-    cuDoubleComplex *beta2=(cuDoubleComplex *)beta;
-// to test
-/*
-    double beta_abs = cuCabs(*beta);
-    if( beta_abs > 1.0e-8 ) 
-*/
-               cudaMemcpyAsync(d_C, C, (*m) * (*n) * sizeof(cuDoubleComplex), cudaMemcpyHostToDevice, stream);
-    cudaDeviceSynchronize();
+    CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, stream));
+    CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, stream));
+    CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC, stream));
+
+    CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, stream));
+
+//    if( beta_abs > 1.0e-8 ) 
+         CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(cudaDeviceSynchronize());
 
     status = cublasZgemm(handle, transA, transB, *m, *n, *k, alpha, d_A, *lda, d_B, *ldb, beta, d_C, *ldc);
-    cudaDeviceSynchronize();
+    CUDA_CHECK(cudaDeviceSynchronize());
    
-    cudaMemcpy(C, d_C, (*m) * (*n) * sizeof(cuDoubleComplex), cudaMemcpyDeviceToHost);
+    CUDA_CHECK(cudaMemcpyAsync(C, d_C, sizeC, cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaDeviceSynchronize());
     cudaFreeAsync(d_A, stream);
     cudaFreeAsync(d_B, stream);
     cudaFreeAsync(d_C, stream);
+    CUDA_CHECK(cudaDeviceSynchronize());
 #else  //not GPUCPOY
+*/
+
+#ifdef GPUCOPY
+    cuDoubleComplex *d_A, *d_B, *d_C;
+    //CUDA_CHECK(cudaMallocAsync((cuDoubleComplex **)&d_A, sizeA, stream));
+    //CUDA_CHECK(cudaMallocAsync((cuDoubleComplex **)&d_B, sizeB, stream));
+    //CUDA_CHECK(cudaMallocAsync((cuDoubleComplex **)&d_C, sizeC, stream));
+    CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, stream));
+    CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, stream));
+    CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC, stream));
+
+    CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, stream));
+  
+    if( beta_abs > 1.0e-8 ) 
+        CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+         mtime_comput-=mysecond();
+    status = cublasZgemm(handle, transA, transB, *m, *n, *k, alpha, d_A, *lda, d_B, *ldb, beta, d_C, *ldc);
+    if (status != CUBLAS_STATUS_SUCCESS) {
+        fprintf(stderr, "CUBLAS error: %d\n", status);
+        exit(EXIT_FAILURE);
+    }
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+         mtime_comput+=mysecond();
+   
+    //CUDA_CHECK(cudaMemcpy(C, d_C, (*m) * (*n) * sizeof(cuDoubleComplex), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpyAsync(C, d_C, sizeC, cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaFreeAsync(d_A, stream));
+    CUDA_CHECK(cudaFreeAsync(d_B, stream));
+    CUDA_CHECK(cudaFreeAsync(d_C, stream));
+    CUDA_CHECK(cudaDeviceSynchronize());
+#else  //not GPUCPOY
+
 
 #ifdef AUTO_NUMA
     int inumaA=which_numa(A);
     int inumaB=which_numa(B);
     int inumaC=which_numa(C);
     //printf("numa node of A=%d B=%d C=%d\n", inumaA, inumaB, inumaC);    
-    if ( inumaA == 0 ) move_numa(A,(unsigned long)(*m)*(*k)*sizeof(double)*2,NUMA_HBM);
-    if ( inumaB == 0 ) move_numa(B,(unsigned long)(*k)*(*n)*sizeof(double)*2,NUMA_HBM);
-    if ( inumaC == 0 ) move_numa(C,(unsigned long)(*m)*(*n)*sizeof(double)*2,NUMA_HBM);
+    if ( inumaA == 0 ) move_numa(A, (size_t)sizeA, NUMA_HBM);
+    if ( inumaB == 0 ) move_numa(B, (size_t)sizeB, NUMA_HBM);
+    if ( inumaC == 0 ) move_numa(C, (size_t)sizeC, NUMA_HBM);
 #endif
+         mtime_comput-=mysecond();
     status = cublasZgemm(handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
-    cudaDeviceSynchronize();
+    if (status != CUBLAS_STATUS_SUCCESS) {
+        fprintf(stderr, "Error in cublasZgemm\n");
+        exit(EXIT_FAILURE);
+    }
+    CUDA_CHECK(cudaDeviceSynchronize());
+         mtime_comput+=mysecond();
 #endif
 
-    cuDoubleComplex *t_A, *t_B, *t_C;
-    t_A=A;
-    t_B=B;
-    t_C=C;
-    if(iprint){   
-       printf("zgemm-%lu, A matrix on gpu:\n", callcount);
-       for (int i=0;i<5;i++) {
-          for (int j=0;j<5;j++) { 
-            int index=i*(*n)+j;
-            printf("%10.6f %10.6f ", cuCreal(t_A[index]), cuCimag(t_A[index]));
-          }
-          printf("\n");
-       }
-       printf("zgemm-%lu, B matrix on gpu:\n", callcount);
-       for (int i=0;i<5;i++) {
-          for (int j=0;j<5;j++) { 
-            int index=i*(*n)+j;
-            printf("%10.6f %10.6f ", cuCreal(t_B[index]), cuCimag(t_B[index]));
-          }
-          printf("\n");
-       }
-       printf("zgemm-%lu, C matrix on gpu:\n", callcount);
-       for (int i=0;i<5;i++) {
-          for (int j=0;j<5;j++) { 
-            int index=i*(*n)+j;
-            printf("%10.6f %10.6f ", cuCreal(t_C[index]), cuCimag(t_C[index]));
-          }
-          printf("\n");
-       }
-       printf("\n");
-    }
-    
 
+         mtime_total+=mysecond();
     return;
 }
 
 void mylib_init(){
+
+// disable THP for auto-page migration
+#ifdef AUTO_NUMA
+    prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0);
+#endif
+
+// register functions
     orig_zgemm= dlsym(RTLD_NEXT, "zgemm_");
+
+
+
     status = cublasCreate(&handle);
+    if (status != CUBLAS_STATUS_SUCCESS) {
+        fprintf(stderr, "CUBLAS initialization failed\n");
+        return;
+    }
+
+#ifdef CUDA_ASYNC
+       // Create CUDA stream
     cudaStreamCreate(&stream);
-    is_MPI=check_MPI();
+#endif
     return;
 }
 void mylib_fini(){
-    cudaStreamDestroy(stream);
     cublasDestroy(handle);
+#ifdef CUDA_ASYNC
+    cudaStreamDestroy(stream);
+#endif
+   if(mtime_total>0.000001){
+              fprintf(stderr,"zgemm time total= %.6f, data=%.6f, compute=%.6f\n", mtime_total,mtime_dmove,mtime_comput);
+#ifdef GPU_COPY
+              fprintf(stderr, "data vol (GB): %.6f, copy speed GB/s: %.6f\n", mvol_dmove, mvol_dmove/mtime_dmove);
+#endif
+   }
+
+    fflush(stderr);
+    fflush(stdout);
+
     return;
 }
 

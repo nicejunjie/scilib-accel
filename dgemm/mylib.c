@@ -66,27 +66,13 @@ int which_numa(double *var) {
  // if(debug) printf("Memory at %p is at numa node %d (retcode %d)\n", ptr_to_check, status[0], ret_code);
  return status[0];
 }
-void move_numa2(double *ptr, unsigned long size, int target_node) {
-  double tnuma=mysecond();
-  int status[1];
-  status[0]=-1;
-  int PAGE_SIZE=getpagesize();
-  unsigned long num_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
-#pragma omp parallel for
-  for (unsigned long i = 0; i < num_pages; i++) {
-     void *page_addr = ptr + (i * PAGE_SIZE / sizeof(double));
-     move_pages(0 /*self memory */, 1, &page_addr, &target_node, status, 0);
-  }
-  tnuma=mysecond()-tnuma;
-  printf("move_numa time %15.6f of %lu pages\n", tnuma, num_pages);
-  return ;
-}
+
 void move_numa(double *ptr, size_t size, int target_node) {
 // size in Bytes
     //printf("size in move_numa=%d, array size=%d\n",size, size/8);
     double tnuma=mysecond();
     int PAGE_SIZE = getpagesize();
-    int rc;
+    int rc=0;
     size_t num_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
     int *status = malloc(num_pages*sizeof(int));
     int *nodes = malloc(num_pages*sizeof(int));
@@ -105,11 +91,8 @@ void move_numa(double *ptr, size_t size, int target_node) {
         if(rc > 0) fprintf(stderr, "warning: %d pages not moved\n", rc); 
         if(rc < 0) {fprintf(stderr, "error: page migration failed\n"); exit(-1);} 
     }
-    free(page_addrs);
 */
 
-
-/// test 
     #pragma omp parallel
     {
         int thread_rc = 0;
@@ -134,8 +117,8 @@ void move_numa(double *ptr, size_t size, int target_node) {
             rc += thread_rc;
         }
     }
-/// test
 
+    free(page_addrs);
 
     tnuma=mysecond()-tnuma;
     //printf("element numa\n");
@@ -156,11 +139,6 @@ cublasHandle_t handle;
 cudaStream_t stream;
 #endif
 
-#ifdef CUDA_MEM_POOL
-MemoryPool memoryPool, memoryPool0;
-size_t poolSize = (size_t)1*GB; 
-bool poolinit=false;
-#endif
 
 void dgemm_( const char* transa, const char* transb, const int* m, const int* n, const int* k, 
                  const double* alpha, const double* A, const int* lda, const double* B, const int* ldb, 
@@ -168,13 +146,6 @@ void dgemm_( const char* transa, const char* transb, const int* m, const int* n,
 
     mtime_total-=mysecond();
 
-#ifdef CUDA_MEM_POOL
-   if(!poolinit) {
-      memoryPool = createMemoryPool(poolSize);
-      memoryPool0 = memoryPool;
-      poolinit=true;
-   }
-#endif
 #ifdef DEBUG
    double ta1,ta0;
    ta0=mysecond();
@@ -192,7 +163,8 @@ void dgemm_( const char* transa, const char* transb, const int* m, const int* n,
    sizeB *= size_type;
    sizeC *= size_type;
    double dgemm_mem_size_mb = ((double)sizeA+(double)sizeB+(double)sizeC) / 1024.0 / 1024.0;
-   int ic = (*beta > 0.00000001) ? 2:1; 
+   double beta_abs = fabs( *beta);
+   int ic = (beta_abs > 1.0e-8) ? 2:1; 
    mvol_dmove+=((double)sizeA+(double)sizeB+(ic)*(double)sizeC)/1024.0/1024.0/1024.0; 
 
    //printf("dgemm msize: %d %d %d, mmem: %.1f MiB\n",*m, *n, *k, dgemm_mem_size_mb);
@@ -207,8 +179,6 @@ void dgemm_( const char* transa, const char* transb, const int* m, const int* n,
    printf("gpu: dgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=%.1f, lda=%d, ldb=%d, beta=%.1f, ldc=%d\n",
         *transa, *transb, *m, *n, *k, *alpha, *lda, *ldb, *beta, *ldc);
 
-
-//   fprintf(stdout,"overloading dgemm_\n");
 
     // Perform matrix multiplication
     //cublasOperation_t transA = (*transa == 'N' || *transa == 'n') ? CUBLAS_OP_N : CUBLAS_OP_T;
@@ -236,11 +206,7 @@ void dgemm_( const char* transa, const char* transb, const int* m, const int* n,
 #endif
     // Allocate memory on GPU
     double *d_A, *d_B, *d_C;
-#ifdef CUDA_MEM_POOL
-    d_A = (double*)allocateFromPool(&memoryPool, (*m)*(*k)*sizeof(double));
-    d_B = (double*)allocateFromPool(&memoryPool, (*k)*(*n)*sizeof(double));
-    d_C = (double*)allocateFromPool(&memoryPool, (*m)*(*n)*sizeof(double));
-#elif defined(CUDA_ASYNC)
+#ifdef (CUDA_ASYNC)
     CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, stream));
     CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, stream));
     CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC, stream));
@@ -267,13 +233,9 @@ void dgemm_( const char* transa, const char* transb, const int* m, const int* n,
 #ifdef CUDA_ASYNC
     CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, stream));
-    if (*beta > 0.00000001) CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, stream));
+    if (beta_abs> 1.0e-8) 
+         CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaDeviceSynchronize());
-/*
-    cudaMemcpy(d_A, A, (*m) * (*k) * sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, B, (*k) * (*n) * sizeof(double), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_C, C, (*m) * (*n) * sizeof(double), cudaMemcpyHostToDevice);
-*/
 #else
     CUDA_CHECK(cudaMemcpy(d_A, A, sizeA, cudaMemcpyHostToDevice));
     CUDA_CHECK(cudaMemcpy(d_B, B, sizeB, cudaMemcpyHostToDevice));
@@ -317,9 +279,7 @@ void dgemm_( const char* transa, const char* transb, const int* m, const int* n,
 #ifdef DEBUG
     t0=mysecond();
 #endif
-#ifdef CUDA_MEM_POOL
-    memoryPool = memoryPool0;
-#elif defined(CUDA_ASYNC)
+#ifdef CUDA_ASYNC 
     cudaFreeAsync(d_A,stream);
     cudaFreeAsync(d_B,stream);
     cudaFreeAsync(d_C,stream);
@@ -350,11 +310,12 @@ void dgemm_( const char* transa, const char* transb, const int* m, const int* n,
 
          mtime_comput-=mysecond();
     status = cublasDgemm(handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
-    cudaDeviceSynchronize();
-         mtime_comput+=mysecond();
     if (status != CUBLAS_STATUS_SUCCESS) {
         fprintf(stderr, "Error in cublasDgemm\n");
+        exit(EXIT_FAILURE);
     }
+    CUDA_CHECK(cudaDeviceSynchronize());
+         mtime_comput+=mysecond();
 #ifdef DEBUG
     t1=mysecond()-t0;
     printf("cudablas2  time %.6f\n",t1);
@@ -424,22 +385,19 @@ void mylib_fini(){
 #ifdef CUDA_ASYNC
     cudaStreamDestroy(stream);
 #endif
-#ifdef CUDA_MEM_POOL
-    if(poolinit) destroyMemoryPool(&memoryPool);
-#endif
    if(mtime_total>0.000001){
               fprintf(stderr,"dgemm time total= %.6f, data=%.6f, compute=%.6f\n", mtime_total,mtime_dmove,mtime_comput);
+#ifdef GPU_COPY
               fprintf(stderr, "data vol (GB): %.6f, copy speed GB/s: %.6f\n", mvol_dmove, mvol_dmove/mtime_dmove);
+#endif
    }
+
     fflush(stderr);
     fflush(stdout);
-
 
     return;
 }
 
-
   __attribute__((section(".init_array"))) void *__init = mylib_init;
   __attribute__((section(".fini_array"))) void *__fini = mylib_fini;
  
-
