@@ -65,5 +65,3 @@ void my_fini(){
 
   __attribute__((section(".init_array"))) void *__init = my_init;
   __attribute__((section(".fini_array"))) void *__fini = my_fini;
-
-

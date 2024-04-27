@@ -1,6 +1,12 @@
 #include "init.h"
 #include "myblas.h"
 
+#ifdef GEMM3M
+#define _CUBLASZGEMM cublasZgemm3m
+#else 
+#define _CUBLASZGEMM cublasZgemm
+#endif
+
 #ifdef DBI
 #define _ZGEMM myzgemm
 #else 
@@ -77,7 +83,7 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
         CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    status = cublasZgemm(handle, transA, transB, *m, *n, *k, alpha, d_A, *lda, d_B, *ldb, beta, d_C, *ldc);
+    status = _CUBLASZGEMM(handle, transA, transB, *m, *n, *k, alpha, d_A, *lda, d_B, *ldb, beta, d_C, *ldc);
     if (status != CUBLAS_STATUS_SUCCESS) {
         fprintf(stderr, "CUBLAS error: %d\n", status);
         exit(EXIT_FAILURE);
@@ -101,7 +107,7 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
     if ( inumaC == 0 ) move_numa(C, (size_t)sizeC, NUMA_HBM);
 #endif
 
-    status = cublasZgemm(handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
+    status = _CUBLASZGEMM(handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
     if (status != CUBLAS_STATUS_SUCCESS) {
         fprintf(stderr, "Error in cublasZgemm\n");
         exit(EXIT_FAILURE);
