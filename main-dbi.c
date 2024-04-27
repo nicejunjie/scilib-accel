@@ -14,7 +14,9 @@
 #include "utils.h"
 #include "init.h"
 
-
+#ifdef NVIDIA
+#include "nvidia.h"
+#endif
 
 //to disable THP
 #include <sys/prctl.h> 
@@ -29,30 +31,6 @@ gpointer *hook_address;
   };
   int fsize = sizeof(farray) / sizeof(farray[0]);
 
-cublasStatus_t status;
-cublasHandle_t handle;
-#ifdef GPUCOPY
-cudaStream_t stream;
-#endif
-
-
-
-/*
-void (*original_dgemm)(const char *transa, const char *transb, const int *m, const int *n, const int *k, 
-                const double *alpha, const double *a, const int *lda, const double *b, const int *ldb, 
-                const double *beta, double *c, const int *ldc); 
-void mydgemm(const char *transa, const char *transb, const int *m, const int *n, const int *k, 
-                const double *alpha, const double *a, const int *lda, const double *b, const int *ldb, 
-                const double *beta, double *c, const int *ldc) 
-{
-   double t;
-
-   //printf("in my dgemm\n");
-   count++;
-   original_dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
-   return;
-}
-*/
 
 void my_init(){
   fprintf(stderr,"SCILIB-accel DBI");
@@ -61,16 +39,9 @@ void my_init(){
     prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0);
 #endif
 
-/*  CUBLAS  */
-    status = cublasCreate(&handle);
-    if (status != CUBLAS_STATUS_SUCCESS) {
-        fprintf(stderr, "CUBLAS initialization failed\n");
-        return;
-    }
-
-#ifdef GPUCOPY
-    cudaStreamCreate(&stream);
-#endif 
+#ifdef NVIDIA
+  nvidia_init();
+#endif
 
   hook_address = malloc(fsize * sizeof(gpointer));
 
@@ -105,10 +76,8 @@ void my_fini(){
   g_object_unref (interceptor);
   gum_deinit_embedded ();
 
-/*  CUBLAS  */
-  cublasDestroy(handle);
-#ifdef GPUCOPY
-  cudaStreamDestroy(stream);
+#ifdef NVIDIA
+  nvidia_fini();
 #endif
 
   fflush(stderr);

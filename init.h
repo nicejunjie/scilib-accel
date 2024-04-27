@@ -20,5 +20,3 @@ enum findex{
 
 
 
-
-#include  "nvidia.h"

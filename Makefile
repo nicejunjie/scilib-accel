@@ -5,9 +5,11 @@ CUBLAS = $(NVHOME)/math_libs/lib64/libcublas.so
 CURT = $(NVHOME)/cuda/lib64/libcudart.so
 CUINCLUDE = $(NVHOME)/cuda/include
 
-GPUARCH=nvidia
+GPUARCH=NVIDIA
 
-INCLUDE = -I. -I./blas/$(GPUARCH) -I$(CUINCLUDE)
+FRIDA_DIR = frida
+
+INCLUDE = -I. -I./blas/$(GPUARCH) -I$(CUINCLUDE) -I./$(FRIDA_DIR)
 
 BLAS = -lblas
 LD_FLAGS = -ldl -lrt -lresolv -lm -pthread -Wl,-z,noexecstack,--gc-sections -lnuma
@@ -20,8 +22,9 @@ CC = pgcc
 FC = pgf90
 
 # CPPFLAGS = -DGPUCOPY
-CPPFLAGS = -DAUTO_NUMA
-#MEMMODEL= -gpu=unified
+CPPFLAGS = -DAUTO_NUMA 
+#MEMMODEL= -gpu=unified 
+CPPFLAGS += -D$(GPUARCH)
 
 
 
@@ -30,7 +33,7 @@ CFLAGS = -O2 -mp -fPIC -w  -g $(INCLUDE) $(CPPFLAGS) $(MEMMODEL)
 CFLAGS1 = $(CFLAGS) -DDBI -I./$(FRIDA_DIR)
 FFLAGS = -O2 -mp -g -mcmodel=large $(MEMMODEL)
 
-COMMON_SRCS = utils.c blas/$(GPUARCH)/dgemm.c blas/$(GPUARCH)/zgemm.c
+COMMON_SRCS = nvidia.c utils.c blas/$(GPUARCH)/dgemm.c blas/$(GPUARCH)/zgemm.c
 
 SRCS1 = main-dbi.c
 SRCS1ALL = $(COMMON_SRCS) $(SRCS1)
@@ -41,12 +44,11 @@ SRCS2ALL = $(COMMON_SRCS) $(SRCS2)
 OBJ2 = $(patsubst %.c,%-dl.o,$(COMMON_SRCS))  $(SRCS2:.c=.o)
 
 
-FRIDA_DIR = frida
 
-all: $(TARGET1) $(TARGET2) test_dgemm.x
+all: dbi dl test_dgemm.x
 
-dbi: $(TARGET1)
-$(TARGET1): $(OBJ1) | $(FRIDA_DIR)
+dbi: $(FRIDA_DIR) $(TARGET1)
+$(TARGET1): $(OBJ1) 
 	@echo "Building DBI based SCILIB-Accel"
 	$(CC) -o $@ -shared -ffunction-sections -fdata-sections $^ ./$(FRIDA_DIR)/libfrida-gum.a ${LD_FLAGS} ${CFLAGS} $(LIBS)
 
@@ -91,6 +93,7 @@ $(FRIDA_DIR)/$(FRIDA_DEVKIT_FILE):
 # ------------------------------------------------------------------------
 
 
+# ---------------------- run tests ---------------------------------------
 test_dgemm.x: test_dgemm.f90 utils.o
 	pgf90 -o $@ $^  -g -lnuma $(BLAS) ${FFLAGS}
 
@@ -103,8 +106,8 @@ run1: test_dgemm.x $(TARGET)
 run2: test_dgemm.x $(TARGET)
 	export OMP_NUM_THREADS=72
 	time echo 20816 2400 32 5 | LD_PRELOAD=./$(TARGET2) ./test_dgemm.x
+# ------------------------------------------------------------------------
 
 .PHONY: clean
-
 clean:
 	rm -rf test_dgemm.x $(TARGET) $(OBJ1) $(OBJ2) $(FRIDA_DIR)
