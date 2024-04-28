@@ -92,7 +92,6 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
 
     CUDA_CHECK(cudaMemcpyAsync(C, d_C, sizeC, cudaMemcpyDeviceToHost, stream));
 
-    // Free GPU memory
     CUDA_CHECK(cudaFreeAsync(d_A, stream));
     CUDA_CHECK(cudaFreeAsync(d_B, stream));
     CUDA_CHECK(cudaFreeAsync(d_C, stream));
