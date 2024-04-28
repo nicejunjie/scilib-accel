@@ -53,15 +53,11 @@ void _DGEMM( const char* transa, const char* transb, const int* m, const int* n,
 
     CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, stream));
-    if (beta_abs> 1.0e-8)
-         CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, stream));
+//    if( beta_abs > 1.0e-8 )  bug if gemm on a submatrix
+    CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaDeviceSynchronize());
 
     status = cublasDgemm(handle, transA, transB, *m, *n, *k, alpha, d_A, *lda, d_B, *ldb, beta, d_C, *ldc);
-    if (status != CUBLAS_STATUS_SUCCESS) {
-        fprintf(stderr, "CUBLAS error: %d\n", status);
-        exit(EXIT_FAILURE);
-    }
     CUDA_CHECK(cudaDeviceSynchronize());
 
     CUDA_CHECK(cudaMemcpy(C, d_C, sizeC, cudaMemcpyDeviceToHost));
@@ -81,11 +77,7 @@ void _DGEMM( const char* transa, const char* transb, const int* m, const int* n,
     if ( inumaC == 0 ) move_numa(C, sizeC, NUMA_HBM);
 #endif
 
-    status = cublasDgemm(handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc);
-    if (status != CUBLAS_STATUS_SUCCESS) {
-        fprintf(stderr, "Error in cublasDgemm\n");
-        exit(EXIT_FAILURE);
-    }
+    CUBLAS_CHECK(cublasDgemm(handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
 #endif
 

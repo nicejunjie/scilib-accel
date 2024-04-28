@@ -21,8 +21,8 @@ TARGET2 = scilib-dl.so
 CC = pgcc
 FC = pgf90
 
-# CPPFLAGS = -DGPUCOPY
-CPPFLAGS = -DAUTO_NUMA 
+#CPPFLAGS = -DGPUCOPY
+ CPPFLAGS = -DAUTO_NUMA 
 #MEMMODEL= -gpu=unified 
 CPPFLAGS += -D$(GPUARCH)
 
