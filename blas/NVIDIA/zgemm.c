@@ -55,7 +55,7 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
     else if (transa[0] == 'H' || transa[0] == 'h') 
         transA = CUBLAS_OP_C;
     else {
-        printf("invalid transA\n");
+        printf("Invalid transA value: %c\n", transa[0]);
         exit(1);
     }
     cublasOperation_t transB;
@@ -66,7 +66,7 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
     else if (transb[0] == 'C' || transb[0] == 'c') 
         transB = CUBLAS_OP_C;
     else {
-        printf("invalid transB\n");
+        printf("Invalid transB value: %c\n", transb[0]);
         exit(1);
     }
 
