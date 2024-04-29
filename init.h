@@ -8,12 +8,14 @@ typedef struct {
 extern freplace farray[] ;
 
 enum findex{
+  sgemm,
   dgemm,
   zgemm,
 };
 
 
 #define INIT_FARRAY \
+    { "sgemm_", "mysgemm", NULL }, \
     { "dgemm_", "mydgemm", NULL }, \
     { "zgemm_", "myzgemm", NULL }, \
     // Add more elements as needed

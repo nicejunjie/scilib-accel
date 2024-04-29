@@ -1,7 +1,7 @@
 # scilib-accel
 Automatic GPU offload for scientific libraries. 
 
-Only dgemm and zgemm are support at this point. 
+Only sgemm, dgemm and zgemm are support at this point. 
 
 ## Compile: 
 `make` to make all 

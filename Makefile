@@ -1,13 +1,17 @@
 
-NV = 24.3
-NVHOME = /scratch1/07893/junjieli/grace-hopper/junjieli/soft/nvhpc/24.3/Linux_aarch64/24.3
+
+
+CC = pgcc
+FC = pgf90
+
+NVHOME := $(shell pgf90_path=$$(which pgf90) && dirname "$$(dirname "$$(dirname "$$pgf90_path")")")
 CUBLAS = $(NVHOME)/math_libs/lib64/libcublas.so
 CURT = $(NVHOME)/cuda/lib64/libcudart.so
 CUINCLUDE = $(NVHOME)/cuda/include
 
 GPUARCH=NVIDIA
 
-FRIDA_DIR = frida
+FRIDA_DIR := frida
 
 INCLUDE = -I. -I./blas/$(GPUARCH) -I$(CUINCLUDE) -I./$(FRIDA_DIR)
 
@@ -18,15 +22,10 @@ LIBS = $(CUBLAS) $(CURT)
 TARGET1 = scilib-dbi.so
 TARGET2 = scilib-dl.so
 
-CC = pgcc
-FC = pgf90
-
-#CPPFLAGS = -DGPUCOPY
- CPPFLAGS = -DAUTO_NUMA 
+ CPPFLAGS = -DGPUCOPY
+#CPPFLAGS = -DAUTO_NUMA 
 #MEMMODEL= -gpu=unified 
 CPPFLAGS += -D$(GPUARCH)
-
-
 
 
 CFLAGS = -O2 -mp -fPIC -w  -g $(INCLUDE) $(CPPFLAGS) $(MEMMODEL)
@@ -47,12 +46,12 @@ OBJ2 = $(patsubst %.c,%-dl.o,$(COMMON_SRCS))  $(SRCS2:.c=.o)
 
 all: dbi dl test_dgemm.x
 
-dbi: $(FRIDA_DIR) $(TARGET1)
+dbi: print-nvhome $(FRIDA_DIR) $(TARGET1)
 $(TARGET1): $(OBJ1) 
 	@echo "Building DBI based SCILIB-Accel"
 	$(CC) -o $@ -shared -ffunction-sections -fdata-sections $^ ./$(FRIDA_DIR)/libfrida-gum.a ${LD_FLAGS} ${CFLAGS} $(LIBS)
 
-dl: $(TARGET2)
+dl: print-nvhome $(TARGET2)
 $(TARGET2): $(OBJ2)
 	@echo "Building DL based SCILIB-Accel"
 	$(CC) -o $@ -shared  $^  ${LD_FLAGS} ${CFLAGS} $(LIBS)
@@ -84,13 +83,19 @@ else
 endif
 
 $(FRIDA_DIR): $(FRIDA_DIR)/$(FRIDA_DEVKIT_FILE)
-	tar -xvf $(FRIDA_DIR)/$(FRIDA_DEVKIT_FILE) -C $(FRIDA_DIR) #--strip-components=1
+	@if [ ! -e "$(FRIDA_DIR)/frida-gum.h" ]; then \
+        tar -xvf $(FRIDA_DIR)/$(FRIDA_DEVKIT_FILE) -C $(FRIDA_DIR); \
+        fi
 
 $(FRIDA_DIR)/$(FRIDA_DEVKIT_FILE):
 	mkdir -p $(FRIDA_DIR)
 	curl -s  -L $(FRIDA_DEVKIT_URL) -o $(FRIDA_DIR)/$(FRIDA_DEVKIT_FILE)
 
 # ------------------------------------------------------------------------
+
+.PHONY: print-nvhome
+print-nvhome:
+	@echo "NVHOME = $(NVHOME)"
 
 
 # ---------------------- run tests ---------------------------------------

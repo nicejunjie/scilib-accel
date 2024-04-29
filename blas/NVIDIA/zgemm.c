@@ -40,7 +40,7 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
          return;
     }
 
-    printf("gpu: zgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, lda=%d, ldb=%d, ldc=%d\n",
+    fprintf(stderr,"gpu: zgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, lda=%d, ldb=%d, ldc=%d\n",
         *transa, *transb, *m, *n, *k, *lda, *ldb, *ldc);
 /*
    // alpla and beta are complex
