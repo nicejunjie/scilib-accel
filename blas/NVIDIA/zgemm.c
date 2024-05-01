@@ -34,7 +34,7 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
     int ic = (beta_abs > 0.00000001) ? 2:1; 
 
     if(avgn<500)  {
-      //   printf("%s %.1f\n", "zgemm on cpu", avgn);
+         //  printf("%s %.1f\n", "zgemm on cpu", avgn);
          if (!orig_f) orig_f = farray[fi].fptr;
          orig_f(transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc); 
          return;
@@ -73,13 +73,138 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
 
 #ifdef GPUCOPY
     cuDoubleComplex *d_A, *d_B, *d_C;
+
+#define SUBCOPY
+#define SUBTMP  //only copy a submatrix      
+//MuST:  80s with all copy,  106s without subtmp submatrix copy, 67s with subtmp
+#ifdef SUBCOPY 
+    bool subA=false, subB=false, subC=false;
+    cuDoubleComplex *tempA, *tempB, *tempC;
+
+    int A_Op_row, A_Op_col, lda_gpu, B_Op_row, B_Op_col, ldb_gpu, C_Op_row, C_Op_col, ldc_gpu;
+    size_t sizeA_gpu, sizeB_gpu, sizeC_gpu;
+
+    if (transa[0] == 'N' || transa[0] == 'n') {A_Op_row=*m; A_Op_col=*k;}
+    else {A_Op_row=*k; A_Op_col=*m;}
+    if(*lda == A_Op_row)  {
+        lda_gpu = *lda;
+        sizeA_gpu = sizeA;
+    }
+    else {
+        lda_gpu=A_Op_row;
+        subA = true;
+        sizeA_gpu = A_Op_row*A_Op_col*size_type;
+    }
+  
+    if (transb[0] == 'N' || transb[0] == 'n') {B_Op_row=*k; B_Op_col=*n;}
+    else {B_Op_row=*n; B_Op_col=*k;}
+    if(*ldb == B_Op_row)  {
+        ldb_gpu = *ldb;
+        sizeB_gpu = sizeB;
+    }
+    else {
+        ldb_gpu=B_Op_row;
+        subB = true;
+        sizeB_gpu = B_Op_row*B_Op_col*size_type;
+    }
+  
+    C_Op_row=*m; C_Op_col=*n;
+    if(*ldc == C_Op_row)  {
+        ldc_gpu = *ldc;
+        sizeC_gpu = sizeC;
+    }
+    else {
+        ldc_gpu=C_Op_row;
+        subC = true;
+        sizeC_gpu = C_Op_row*C_Op_col*size_type;
+    }
+  
+    CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA_gpu, stream));
+    CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB_gpu, stream));
+    CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC_gpu, stream));
+   
+
+    if (subA) {
+#ifdef SUBTMP
+      tempA = (cuDoubleComplex*)malloc(sizeA_gpu);
+#pragma omp parallel for
+      for (int j = 0; j < A_Op_col; j++) 
+        memcpy(tempA + j * lda_gpu, (cuDoubleComplex*)A + j * *lda, A_Op_row * size_type);
+        CUDA_CHECK(cudaMemcpyAsync(d_A, tempA, sizeA_gpu, cudaMemcpyHostToDevice, stream));
+#else 
+      for (int j = 0; j < A_Op_col; j++) 
+        CUDA_CHECK(cudaMemcpyAsync(d_A + j * lda_gpu, (cuDoubleComplex*)A + j * *lda, A_Op_row * size_type,
+                                 cudaMemcpyHostToDevice, stream));
+#endif
+    }
+    else 
+      CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, stream));
+
+    if (subB) {
+#ifdef SUBTMP
+      tempB = (cuDoubleComplex*)malloc(sizeB_gpu);
+#pragma omp parallel for
+      for (int j = 0; j < B_Op_col; j++) 
+        memcpy(tempB + j * ldb_gpu, (cuDoubleComplex*)B + j * *ldb, B_Op_row * size_type);
+        CUDA_CHECK(cudaMemcpyAsync(d_B, tempB, sizeB_gpu, cudaMemcpyHostToDevice, stream));
+#else
+      for (int j = 0; j < B_Op_col; j++) 
+        CUDA_CHECK(cudaMemcpyAsync(d_B + j * ldb_gpu, (cuDoubleComplex*)B + j * *ldb, B_Op_row * size_type,
+                                 cudaMemcpyHostToDevice, stream));
+#endif
+    }
+    else 
+      CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, stream));
+
+    if (subC) {
+#ifdef SUBTMP
+      tempC = (cuDoubleComplex*)malloc(sizeC_gpu);
+#pragma omp parallel for
+      for (int j = 0; j < C_Op_col; j++) 
+        memcpy(tempC + j * ldc_gpu, (cuDoubleComplex*)C + j * *ldc, C_Op_row * size_type);
+        CUDA_CHECK(cudaMemcpyAsync(d_C, tempC, sizeC_gpu, cudaMemcpyHostToDevice, stream));
+#else
+      for (int j = 0; j < C_Op_col; j++) 
+        CUDA_CHECK(cudaMemcpyAsync(d_C + j * ldc_gpu,(cuDoubleComplex*)C + j * *ldc,  C_Op_row * size_type,
+                                   cudaMemcpyHostToDevice, stream));
+#endif
+    }
+    else 
+      CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, stream));
+
+    CUDA_CHECK(cudaDeviceSynchronize());
+#ifdef SUBTMP
+    if (subA) free(tempA);
+    if (subB) free(tempB);
+#endif
+
+    CUBLAS_CHECK(_CUBLASZGEMM(handle, transA, transB, *m, *n, *k, alpha, d_A, lda_gpu, d_B, ldb_gpu, beta, d_C, ldc_gpu));
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    if(subC) {
+#ifdef SUBTMP
+      CUDA_CHECK(cudaMemcpyAsync(tempC, d_C, sizeC_gpu, cudaMemcpyDeviceToHost, stream));
+      CUDA_CHECK(cudaDeviceSynchronize());
+#pragma omp parallel for
+      for (int j = 0; j < C_Op_col; j++) 
+        memcpy((cuDoubleComplex*)C + j * *ldc, tempC + j * ldc_gpu, C_Op_row * size_type);
+      free(tempC);
+#else 
+      for (int j = 0; j < C_Op_col; j++) 
+        CUDA_CHECK(cudaMemcpyAsync((cuDoubleComplex*)C + j * *ldc, d_C + j * ldc_gpu, C_Op_row * size_type,
+                                 cudaMemcpyDeviceToHost, stream));
+#endif
+    }
+    else 
+      CUDA_CHECK(cudaMemcpyAsync(C, d_C, sizeC, cudaMemcpyDeviceToHost, stream));
+
+#else 
     CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, stream));
     CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, stream));
     CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC, stream));
 
     CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, stream));
-//    if( beta_abs > 1.0e-8 )  bug if gemm on a submatrix
     CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaDeviceSynchronize());
 
@@ -87,7 +212,8 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
     CUDA_CHECK(cudaDeviceSynchronize());
 
     CUDA_CHECK(cudaMemcpyAsync(C, d_C, sizeC, cudaMemcpyDeviceToHost, stream));
-
+#endif
+    CUDA_CHECK(cudaDeviceSynchronize());
     CUDA_CHECK(cudaFreeAsync(d_A, stream));
     CUDA_CHECK(cudaFreeAsync(d_B, stream));
     CUDA_CHECK(cudaFreeAsync(d_C, stream));
