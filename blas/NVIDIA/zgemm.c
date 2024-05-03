@@ -130,7 +130,7 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
 #pragma omp parallel for
       for (int j = 0; j < A_Op_col; j++) 
         memcpy(tempA + j * lda_gpu, (cuDoubleComplex*)A + j * *lda, A_Op_row * size_type);
-        CUDA_CHECK(cudaMemcpyAsync(d_A, tempA, sizeA_gpu, cudaMemcpyHostToDevice, stream));
+      CUDA_CHECK(cudaMemcpyAsync(d_A, tempA, sizeA_gpu, cudaMemcpyHostToDevice, stream));
 #else 
       for (int j = 0; j < A_Op_col; j++) 
         CUDA_CHECK(cudaMemcpyAsync(d_A + j * lda_gpu, (cuDoubleComplex*)A + j * *lda, A_Op_row * size_type,
@@ -146,7 +146,7 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
 #pragma omp parallel for
       for (int j = 0; j < B_Op_col; j++) 
         memcpy(tempB + j * ldb_gpu, (cuDoubleComplex*)B + j * *ldb, B_Op_row * size_type);
-        CUDA_CHECK(cudaMemcpyAsync(d_B, tempB, sizeB_gpu, cudaMemcpyHostToDevice, stream));
+      CUDA_CHECK(cudaMemcpyAsync(d_B, tempB, sizeB_gpu, cudaMemcpyHostToDevice, stream));
 #else
       for (int j = 0; j < B_Op_col; j++) 
         CUDA_CHECK(cudaMemcpyAsync(d_B + j * ldb_gpu, (cuDoubleComplex*)B + j * *ldb, B_Op_row * size_type,
@@ -162,7 +162,7 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
 #pragma omp parallel for
       for (int j = 0; j < C_Op_col; j++) 
         memcpy(tempC + j * ldc_gpu, (cuDoubleComplex*)C + j * *ldc, C_Op_row * size_type);
-        CUDA_CHECK(cudaMemcpyAsync(d_C, tempC, sizeC_gpu, cudaMemcpyHostToDevice, stream));
+      CUDA_CHECK(cudaMemcpyAsync(d_C, tempC, sizeC_gpu, cudaMemcpyHostToDevice, stream));
 #else
       for (int j = 0; j < C_Op_col; j++) 
         CUDA_CHECK(cudaMemcpyAsync(d_C + j * ldc_gpu,(cuDoubleComplex*)C + j * *ldc,  C_Op_row * size_type,
