@@ -11,6 +11,7 @@
 #include <time.h>
 #include <sys/time.h>
 
+double myt_app=0.0;
 double myt_sgemm=0.0;
 double myt_dgemm=0.0;
 double myt_cgemm=0.0;
@@ -136,12 +137,17 @@ int get_MPI_rank() {
 
 
 
+void myinit(){
+   myt_app -= mysecond2();
+}
 
 void myfini(){
+   myt_app += mysecond2();
    if(myt_sgemm>0.000001) fprintf(stderr,"MYPROF sgemm: count = %d , time = %.6f\n", myn_sgemm, myt_sgemm);
    if(myt_dgemm>0.000001) fprintf(stderr,"MYPROF dgemm: count = %d , time = %.6f\n", myn_dgemm, myt_dgemm);
    if(myt_cgemm>0.000001) fprintf(stderr,"MYPROF cgemm: count = %d , time = %.6f\n", myn_cgemm, myt_cgemm);
    if(myt_zgemm>0.000001) fprintf(stderr,"MYPROF zgemm: count = %d , time = %.6f\n", myn_zgemm, myt_zgemm);
+   if (myt_sgemm>0.000001 || myt_dgemm>0.000001 || myt_cgemm>0.000001 || myt_zgemm>0.000001 ) fprintf(stderr,"MYPROF Total: time = %.6f\n",  myt_app);  
 }
 
 
@@ -150,5 +156,5 @@ void myfini(){
 // __attribute__((section(".fini_array"))) void *__fini = myfini;
 
 
-//  void libprof_init() __attribute__((constructor));
+  void myinit() __attribute__((constructor));
   void myfini() __attribute__((destructor));
