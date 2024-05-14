@@ -67,14 +67,19 @@ void move_numa(double *ptr, size_t size, int target_node) {
         nodes[i]=target_node;
         status[i]=-1;
     }
-//    rc=move_pages(0 /*self memory*/, num_pages, page_addrs, nodes, status, 0);
-/*
+    
+
+#define MOVE_BULK
+
+#ifdef MOVE_BULK
+    rc=move_pages(0, num_pages, page_addrs, nodes, status, 0);
     if(rc!=0) {
         if(rc > 0) fprintf(stderr, "warning: %d pages not moved\n", rc); 
         if(rc < 0) {fprintf(stderr, "error: page migration failed\n"); exit(-1);} 
     }
-*/
 
+
+#else
     #pragma omp parallel
     {
         int thread_rc = 0;
@@ -82,7 +87,7 @@ void move_numa(double *ptr, size_t size, int target_node) {
         for (size_t i = 0; i < num_pages; i += omp_get_num_threads()) {
             size_t start = i;
             size_t end = ((i + omp_get_num_threads()) < num_pages) ? (i + omp_get_num_threads()) : num_pages;
-            thread_rc = move_pages(0 /*self memory*/, end - start, &page_addrs[start], &nodes[start], &status[start], 0);
+            thread_rc = move_pages(0 , end - start, &page_addrs[start], &nodes[start], &status[start], 0);
             if (thread_rc != 0) {
                 #pragma omp critical
                 {
@@ -99,6 +104,7 @@ void move_numa(double *ptr, size_t size, int target_node) {
             rc += thread_rc;
         }
     }
+#endif
 
     free(page_addrs);
 

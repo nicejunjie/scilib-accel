@@ -22,8 +22,8 @@ LIBS = $(CUBLAS) $(CURT)
 TARGET1 = scilib-dbi.so
 TARGET2 = scilib-dl.so
 
- CPPFLAGS = -DGPUCOPY
-#CPPFLAGS = -DAUTO_NUMA 
+#CPPFLAGS = -DGPUCOPY
+ CPPFLAGS = -DAUTO_NUMA 
 #MEMMODEL= -gpu=unified 
 CPPFLAGS += -D$(GPUARCH)
 
@@ -31,6 +31,8 @@ CPPFLAGS += -D$(GPUARCH)
 CFLAGS = -O2 -mp -fPIC -w  -g $(INCLUDE) $(CPPFLAGS) $(MEMMODEL)
 CFLAGS1 = $(CFLAGS) -DDBI -I./$(FRIDA_DIR)
 FFLAGS = -O2 -mp -g -mcmodel=large $(MEMMODEL)
+
+#----------------------------
 
 COMMON_SRCS = nvidia.c utils.c blas/$(GPUARCH)/dgemm.c blas/$(GPUARCH)/zgemm.c
 
