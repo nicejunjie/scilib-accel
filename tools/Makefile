@@ -22,7 +22,7 @@ gemm-timer.so: gemm-timer.c
 # --------
 
 move_page: move_page_timer.c
-	$(CC) -O2 $^ -o $@  -lnuma
+	$(CC) -O2 $^ -o $@  -lnuma -fopenmp
 
 clean:
 	rm -f getpagesize thpoff gemm-timer move_page

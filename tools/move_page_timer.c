@@ -1,4 +1,4 @@
-
+//gcc -o move_page move_page_timer.c -lnuma
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,8 +6,24 @@
 #include <numaif.h>
 #include <unistd.h>
 #include <numa.h>
+#include <omp.h>
 
-#define NUM_PAGES 100
+#define NUM_PAGES 10000
+#define ORIG_NUMA 0
+#define DEST_NUMA 1
+
+
+double mysecond()
+{
+    struct timespec measure;
+
+    // Get the current time as the start time
+    clock_gettime(CLOCK_MONOTONIC, &measure);
+
+    // Return the elapsed time in seconds
+    return (double)measure.tv_sec + (double)measure.tv_nsec * 1e-9;
+}
+
 
 int compare_doubles(const void* a, const void* b) {
     double da = *(const double*)a;
@@ -23,39 +39,47 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    // Allocate memory on NUMA node 0 for float array
-    void* ptr = numa_alloc_onnode(page_size * NUM_PAGES, 0);
+    printf("\n--------------------------------\n\n");
+    printf("Page size: %ld bytes\n", page_size);
+    printf("Number of pages: %d\n\n", NUM_PAGES);
+
+
+    // Allocate memory on NUMA node 0 
+    char* ptr = numa_alloc_onnode(page_size * NUM_PAGES, ORIG_NUMA);
     if (ptr == NULL) {
         perror("numa_alloc_onnode");
         exit(EXIT_FAILURE);
     }
+    memset(ptr, 0, page_size * NUM_PAGES);
 
     // Array to store individual page move times
     double page_times[NUM_PAGES];
     double total_time = 0;
 
-    printf("\n\n--------------------------\n\n");
+    int *status = malloc(NUM_PAGES*sizeof(int));
+    int *nodes = malloc(NUM_PAGES*sizeof(int));
+    void **page_addrs = malloc(NUM_PAGES * sizeof(void *));
+
+    // Populate the array with page addresses
+    for (int i = 0; i < NUM_PAGES; ++i) {
+        page_addrs[i] = ptr + i * page_size;
+        nodes[i]=DEST_NUMA;
+        status[i]=-1;
+    }
+
+    double elapsed_time;
+
+    printf("---- Single page migration experiments: ----\n\n");
     // Loop to move 10 pages one at a time and measure time for each move
     for (int i = 0; i < NUM_PAGES; ++i) {
-        // Set up variables for timing
-        struct timespec start, end;
-
-        // Get the start time
-        clock_gettime(CLOCK_MONOTONIC, &start);
-
+    
+        elapsed_time = -mysecond();
         // Move a page from NUMA node 0 to node 1
-        int status;
-        void* page_ptr = (char*)ptr + i * page_size;
-        if (move_pages(0, 1, &page_ptr, NULL, &status, MPOL_MF_MOVE) < 0) {
+        if (move_pages(0, 1, &page_addrs[i], &nodes[i], &status[i], MPOL_MF_MOVE) < 0) {
             perror("move_pages");
             exit(EXIT_FAILURE);
         }
-
-        // Get the end time
-        clock_gettime(CLOCK_MONOTONIC, &end);
-
-        // Calculate the elapsed time in seconds
-        double elapsed_time = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1e9;
+        elapsed_time += mysecond();
 
         // Store the individual page move time
         page_times[i] = elapsed_time;
@@ -65,10 +89,13 @@ int main() {
             double bandwidth_bytes = page_size / elapsed_time;
             double bandwidth_GBps = bandwidth_bytes / (1e9);
             double bandwidth_GiBps = bandwidth_bytes / (1024 * 1024 * 1024);
-            printf("  Time(%2d): %.9f seconds, Bandwidth: %10.2f GB/s (%10.2f GiB/s)\n", i+1, elapsed_time, bandwidth_GBps, bandwidth_GiBps);
+            printf("  Time(%2d): %.9f seconds, Bandwidth: %6.2f GB/s (%6.2f GiB/s)\n", i+1, elapsed_time, bandwidth_GBps, bandwidth_GiBps);
         }
 
     }
+
+    // Free the allocated memory
+    numa_free(ptr, page_size * NUM_PAGES);
 
     // Sort the page_times array
     qsort(page_times, NUM_PAGES, sizeof(double), compare_doubles);
@@ -79,8 +106,6 @@ int main() {
     double mean_time = total_time / NUM_PAGES;
     double median_time = (NUM_PAGES % 2 == 0) ? (page_times[NUM_PAGES / 2 - 1] + page_times[NUM_PAGES / 2]) / 2 : page_times[NUM_PAGES / 2];
 
-    // Calculate the total data transferred in bytes
-    size_t total_bytes_transferred = page_size * NUM_PAGES;
 
     // Calculate the memory bandwidth in bytes per second for min, mean, median, and max times
     double min_bandwidth_bytes = page_size / max_time;
@@ -99,23 +124,110 @@ int main() {
     double max_bandwidth_GiBps = max_bandwidth_bytes / (1024 * 1024 * 1024);
 
     // Print the results
-    printf("\n");
-    printf("Page size: %ld bytes\n", page_size);
-    printf("Pages moved successfully from NUMA node 0 to node 1\n");
-    printf("Time taken:\n");
-    printf("  -Minimum: %.9f seconds\n", min_time);
-    printf("  -Mean: %.9f seconds\n", mean_time);
-    printf("  -Median: %.9f seconds\n", median_time);
-    printf("  -Maximum: %.9f seconds\n", max_time);
-    printf("Memory bandwidth based on time:\n");
-    printf("  -Minimum: %8.2f GB/s (%8.2f GiB/s)\n", min_bandwidth_GBps, min_bandwidth_GiBps);
-    printf("  -Mean: %8.2f GB/s (%8.2f GiB/s)\n", mean_bandwidth_GBps, mean_bandwidth_GiBps);
-    printf("  -Median: %8.2f GB/s (%8.2f GiB/s)\n", median_bandwidth_GBps, median_bandwidth_GiBps);
-    printf("  -Maximum: %8.2f GB/s (%8.2f GiB/s)\n", max_bandwidth_GBps, max_bandwidth_GiBps);
-    printf("\n\n--------------------------\n\n");
+    printf("\nTime taken:\n");
+    printf("  +Minimum:  %.9f seconds\n", min_time);
+    printf("  +Mean:     %.9f seconds\n", mean_time);
+    printf("  +Median:   %.9f seconds\n", median_time);
+    printf("  +Maximum:  %.9f seconds\n", max_time);
+    printf("Memory bandwidth based on page migration:\n");
+    printf("  +Minimum:  %6.2f GB/s (%6.2f GiB/s)\n", min_bandwidth_GBps, min_bandwidth_GiBps);
+    printf("  +Mean:     %6.2f GB/s (%6.2f GiB/s)\n", mean_bandwidth_GBps, mean_bandwidth_GiBps);
+    printf("  +Median:   %6.2f GB/s (%6.2f GiB/s)\n", median_bandwidth_GBps, median_bandwidth_GiBps);
+    printf("  +Maximum:  %6.2f GB/s (%6.2f GiB/s)\n", max_bandwidth_GBps, max_bandwidth_GiBps);
+
+
+// bulk migration
+
+    // Allocate memory on NUMA node 0 
+    ptr = numa_alloc_onnode(page_size * NUM_PAGES, ORIG_NUMA);
+    if (ptr == NULL) {
+        perror("numa_alloc_onnode");
+        exit(EXIT_FAILURE);
+    }
+    memset(ptr, 0, page_size * NUM_PAGES);
+
+    int rc=0;
+    elapsed_time = -mysecond();
+    rc=move_pages(0 /*self memory*/, NUM_PAGES, page_addrs, nodes, status, 0);
+    elapsed_time += mysecond();
+    if(rc!=0) {
+        if(rc > 0) fprintf(stderr, "warning: %d pages not moved\n", rc);
+        if(rc < 0) {fprintf(stderr, "error: page migration failed\n"); exit(-1);}
+    }
 
     // Free the allocated memory
     numa_free(ptr, page_size * NUM_PAGES);
+
+    // Calculate the total data transferred in bytes
+    size_t total_bytes_transferred = page_size * NUM_PAGES;
+    double bulk_time = elapsed_time;
+    double bulk_bandwidth_bytes = total_bytes_transferred / bulk_time;
+    double bulk_bandwidth_GBps = bulk_bandwidth_bytes / (1e9);
+    double bulk_bandwidth_GiBps = bulk_bandwidth_bytes / (1024 * 1024 * 1024);
+
+
+    printf("\n---- Bulk page migration experiments: ----\n\n");
+    printf("Time taken:\n");
+    printf("  +Bulk:     %.9f seconds\n", bulk_time);
+    printf("Memory bandwidth based on page migration:\n");
+    printf("  +Bulk:     %6.2f GB/s (%6.2f GiB/s)\n", bulk_bandwidth_GBps, bulk_bandwidth_GiBps);
+
+
+// omp parallel bulk migration
+
+    ptr = numa_alloc_onnode(page_size * NUM_PAGES, ORIG_NUMA);
+    if (ptr == NULL) {
+        perror("numa_alloc_onnode");
+        exit(EXIT_FAILURE);
+    }
+    memset(ptr, 0, page_size * NUM_PAGES);
+
+    elapsed_time = -mysecond();
+    #pragma omp parallel
+    {
+        int thread_rc = 0;
+        #pragma omp for
+        for (size_t i = 0; i < NUM_PAGES; i += omp_get_num_threads()) {
+            size_t start = i;
+            size_t end = ((i + omp_get_num_threads()) < NUM_PAGES) ? (i + omp_get_num_threads()) : NUM_PAGES;
+            thread_rc = move_pages(0 /*self memory*/, end - start, &page_addrs[start], &nodes[start], &status[start], 0);
+            if (thread_rc != 0) {
+                #pragma omp critical
+                {
+                    if (thread_rc > 0) fprintf(stderr, "warning: %d pages not moved\n", thread_rc);
+                    if (thread_rc < 0) {
+                        fprintf(stderr, "error: page migration failed\n");
+                        exit(-1);
+                    }
+                }
+            }
+        }
+        #pragma omp critical
+        {
+            rc += thread_rc;
+        }
+    }
+    elapsed_time += mysecond();
+    numa_free(ptr, page_size * NUM_PAGES);
+
+    double pbulk_time = elapsed_time;
+    double pbulk_bandwidth_bytes = total_bytes_transferred / pbulk_time;
+    double pbulk_bandwidth_GBps = pbulk_bandwidth_bytes / (1e9);
+    double pbulk_bandwidth_GiBps = pbulk_bandwidth_bytes / (1024 * 1024 * 1024);
+
+
+    printf("\n---- OpenMP Bulk page migration experiments: ----\n");
+    #pragma omp parallel
+    #pragma omp single
+    printf("OMP_NUM_THREADS=%d\n\n",omp_get_num_threads());
+    printf("Time taken:\n");
+    printf("  +OMP Bulk: %.9f seconds\n", pbulk_time);
+    printf("Memory bandwidth based on page migration:\n");
+    printf("  +OMP Bulk: %6.2f GB/s (%6.2f GiB/s)\n", pbulk_bandwidth_GBps, pbulk_bandwidth_GiBps);
+
+
+
+    printf("\n--------------------------------\n\n");
 
     return 0;
 }
