@@ -12,7 +12,7 @@ thpoff: thpoff.c
 
 # -------- 
 
-CPPFLAGS2 = -DDEBUG
+#CPPFLAGS2 = -DDEBUG
 CFLAGS2 = -g -fPIC -shared $(CPPFLAGS2)  
 
 gemm-timer.so: gemm-timer.c
