@@ -2,7 +2,7 @@ CC = gcc
 
 CFLAGS1 =  -O2
 
-all: getpagesize thpoff gemm-timer.so
+all: getpagesize thpoff gemm-timer.so move_page
 
 getpagesize: getpagesize.c
 	$(CC) $(CFLAGS1) $^ -o $@
@@ -21,6 +21,9 @@ gemm-timer.so: gemm-timer.c
 
 # --------
 
+move_page: move_page_timer.c
+	$(CC) -O2 $^ -o $@  -lnuma
+
 clean:
-	rm -f getpagesize thpoff gemm-timer
+	rm -f getpagesize thpoff gemm-timer move_page
 
