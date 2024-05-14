@@ -107,7 +107,7 @@ int main() {
     printf("  -Mean: %.9f seconds\n", mean_time);
     printf("  -Median: %.9f seconds\n", median_time);
     printf("  -Maximum: %.9f seconds\n", max_time);
-    printf("Memory bandwidth based on time:\n");
+    printf("Memory bandwidth based on page migration:\n");
     printf("  -Minimum: %8.2f GB/s (%8.2f GiB/s)\n", min_bandwidth_GBps, min_bandwidth_GiBps);
     printf("  -Mean: %8.2f GB/s (%8.2f GiB/s)\n", mean_bandwidth_GBps, mean_bandwidth_GiBps);
     printf("  -Median: %8.2f GB/s (%8.2f GiB/s)\n", median_bandwidth_GBps, median_bandwidth_GiBps);
