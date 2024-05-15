@@ -25,6 +25,73 @@ double mysecond()
 }
 
 
+void print_system_info() {
+    // Print CONFIG_ARM64_64K_PAGES
+    char command[256];
+    snprintf(command, sizeof(command), "grep CONFIG_ARM64_64K_PAGES /boot/config-$(uname -r)");
+    printf("CONFIG_ARM64_64K_PAGES:\n");
+    system(command);
+
+    printf("--- OS Setup --\n");
+    // Print PAGESIZE
+    long pagesize = sysconf(_SC_PAGESIZE);
+    printf("PAGESIZE: %ld\n", pagesize);
+
+    // Print Hugepagesize
+    FILE *file = fopen("/proc/meminfo", "r");
+    if (file != NULL) {
+        char line[256];
+        while (fgets(line, sizeof(line), file)) {
+            if (strstr(line, "Hugepagesize:") != NULL) {
+                printf("%s", line);
+                break;
+            }
+        }
+        fclose(file);
+    } else {
+        perror("Failed to open /proc/meminfo");
+    }
+
+    // Print transparent_hugepage/defrag
+    file = fopen("/sys/kernel/mm/transparent_hugepage/defrag", "r");
+    if (file != NULL) {
+        char defrag[256];
+        if (fgets(defrag, sizeof(defrag), file) != NULL) {
+            printf("transparent_hugepage/defrag: %s", defrag);
+        }
+        fclose(file);
+    } else {
+        perror("Failed to open /sys/kernel/mm/transparent_hugepage/defrag");
+    }
+
+    // Print transparent_hugepage/enabled
+    file = fopen("/sys/kernel/mm/transparent_hugepage/enabled", "r");
+    if (file != NULL) {
+        char enabled[256];
+        if (fgets(enabled, sizeof(enabled), file) != NULL) {
+            printf("transparent_hugepage/enabled: %s", enabled);
+        }
+        fclose(file);
+    } else {
+        perror("Failed to open /sys/kernel/mm/transparent_hugepage/enabled");
+    }
+
+    // Print numa_balancing
+    file = fopen("/proc/sys/kernel/numa_balancing", "r");
+    if (file != NULL) {
+        char numa_balancing[256];
+        if (fgets(numa_balancing, sizeof(numa_balancing), file) != NULL) {
+            printf("numa_balancing: %s", numa_balancing);
+        }
+        fclose(file);
+    } else {
+        perror("Failed to open /proc/sys/kernel/numa_balancing");
+    }
+}
+
+
+
+
 int compare_doubles(const void* a, const void* b) {
     double da = *(const double*)a;
     double db = *(const double*)b;
@@ -40,8 +107,9 @@ int main() {
     }
 
     printf("\n--------------------------------\n\n");
-    printf("Page size: %ld bytes\n", page_size);
-    printf("Number of pages: %d\n\n", NUM_PAGES);
+    print_system_info();
+
+    printf("\nNumber of pages: %d\n\n", NUM_PAGES);
 
 
     // Allocate memory on NUMA node 0 
