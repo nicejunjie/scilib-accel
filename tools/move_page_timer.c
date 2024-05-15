@@ -26,13 +26,14 @@ double mysecond()
 
 
 void print_system_info() {
+    printf("--- OS Setup --\n");
+
     // Print CONFIG_ARM64_64K_PAGES
     char command[256];
     snprintf(command, sizeof(command), "grep CONFIG_ARM64_64K_PAGES /boot/config-$(uname -r)");
     printf("CONFIG_ARM64_64K_PAGES:\n");
     system(command);
 
-    printf("--- OS Setup --\n");
     // Print PAGESIZE
     long pagesize = sysconf(_SC_PAGESIZE);
     printf("PAGESIZE: %ld\n", pagesize);
