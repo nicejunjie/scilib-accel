@@ -1,32 +1,31 @@
+# Compiler and Flags
 CC = gcc
+CFLAGS = -O2
+SHARE = -g -fPIC -shared
 
-CFLAGS1 =  -O2
+# Targets
+TARGETS = getpagesize thpoff gemm-timer.so gemm-timer-debug.so move_page
 
-all: getpagesize thpoff gemm-timer.so gemm-timer-debug.so move_page
+# Default target
+all: $(TARGETS)
 
+# Rules
 getpagesize: getpagesize.c
-	$(CC) $(CFLAGS1) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@
 
 thpoff: thpoff.c
-	$(CC) $(CFLAGS1) $^ -o $@
-
-# -------- 
-
-#CPPFLAGS2 = -DDEBUG
-CFLAGS2 = -g -fPIC -shared $(CPPFLAGS2)  
+	$(CC) $(CFLAGS) $^ -o $@
 
 gemm-timer.so: gemm-timer.c
-	$(CC) $(CFLAGS2) $^ -o $@
+	$(CC) $(SHARE) $^ -o $@
 
 gemm-timer-debug.so: gemm-timer.c
-	$(CC) -DDEBUG $(CFLAGS2) $^ -o $@
-
-
-# --------
+	$(CC) $(SHARE) -DDEBUG $^ -o $@
 
 move_page: move_page_timer.c
-	$(CC) -O2 $^ -o $@  -lnuma -fopenmp
+	$(CC) $(CFLAGS) $^ -o $@ -lnuma -fopenmp
 
+# Clean up
 clean:
-	rm -f getpagesize thpoff gemm-timer move_page gemm-timer.so gemm-timer-debug.so
+	rm -f $(TARGETS)
 
