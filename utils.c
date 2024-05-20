@@ -69,16 +69,13 @@ void move_numa(double *ptr, size_t size, int target_node) {
     }
     
 
-#define MOVE_BULK
-
+#define MOVE_BULK   //OMP parallelized version is slower due to too many concurrencies when all cores are used. 
 #ifdef MOVE_BULK
     rc=move_pages(0, num_pages, page_addrs, nodes, status, 0);
     if(rc!=0) {
         if(rc > 0) fprintf(stderr, "warning: %d pages not moved\n", rc); 
         if(rc < 0) {fprintf(stderr, "error: page migration failed\n"); exit(-1);} 
     }
-
-
 #else
     #pragma omp parallel
     {
@@ -130,5 +127,59 @@ int check_MPI() {
         return 1;
     else
         return 0;
+}
+
+
+
+void get_argv0(char **argv0) {
+    char* buffer = (char *)malloc(sizeof(char) * (1024));
+    strcpy(buffer, "null\0");
+    FILE *fp = fopen("/proc/self/cmdline", "r");
+    if (!fp) {
+        perror("fopen");
+        *argv0 = buffer;
+        return;
+    }
+
+    int n = fread(buffer, 1, 1024, fp);
+    if (n == 0) {
+        perror("fread");
+        *argv0 = buffer;
+        return;
+    }
+    buffer[n-1] = '\0';
+    *argv0 = buffer;
+}
+
+
+#define check_list_size 14
+/* Check if string ends with commands to be ignored*/
+int check_string(const char *str) {
+    const char *check_list[check_list_size] = {
+        "/bin/sh",
+        "/bin/bash",
+        "lscpu",
+        "bin/ssh",
+        "hostname",
+        //"awk", "sed", "grep", "lscpu", "mktemp", "rm", "mv",
+        "ibrun",
+        "mpirun",
+        "mpirun_rsh",
+        "mpiexec",
+        "mpiexec.hydra",
+        "numactl",
+        "srun",
+        "hydra_bstrap_proxy",
+        "hydra_pmi_proxy"
+    };
+
+    for (int i = 0; i < check_list_size; i++) {
+        size_t len = strlen(check_list[i]);
+        if (strlen(str) >= len && strcmp(str + strlen(str) - len, check_list[i]) == 0) {
+            //printf("The string %s ends with %s\n", str, check_list[i]);
+            return 1;
+        }
+    }
+    return 0;
 }
 

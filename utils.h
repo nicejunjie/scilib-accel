@@ -38,3 +38,6 @@ void move_numa(double *ptr, unsigned long size, int target_node);
 
 
 int check_MPI();
+
+
+

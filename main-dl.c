@@ -21,16 +21,14 @@ freplace farray[] = {
 int fsize = sizeof(farray) / sizeof(farray[0]);
 
 void my_init(){
-
-  fprintf(stderr, "SCILIB-accel DL");
-
+// fprintf(stderr, "SCILIB-accel DL");
 // disable THP for auto-page migration
 #ifdef AUTO_NUMA
-     prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0);
+//    prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0);
 #endif
 
 #ifdef NVIDIA
-   nvidia_init();
+  nvidia_init();
 #endif
 
 // register functions
@@ -45,22 +43,19 @@ void my_init(){
 void my_fini(){
 
 #ifdef NVIDIA
-   nvidia_fini();
+  nvidia_fini();
 #endif
 
-/*
-   if(mtime_total>0.000001){
-              fprintf(stderr,"dgemm time total= %.6f, data=%.6f, compute=%.6f\n", mtime_total,mtime_dmove,mtime_comput);
-#ifdef GPU_COPY
-              fprintf(stderr, "data vol (GB): %.6f, copy speed GB/s: %.6f\n", mvol_dmove, mvol_dmove/mtime_dmove);
-#endif
-   }
-*/
+  for( int i=0; i< fsize; i++) {
+     if(farray[i].t0 > 1e-7)
+       fprintf(stderr, "%10s time: total= %15.6f, compute= %15.6f, other= %15.6f\n", farray[i].f0, farray[i].t0, farray[i].t1, farray[i].t0-farray[i].t1) ;
+  }
 
-    fflush(stderr);
-    fflush(stdout);
 
-    return;
+  fflush(stderr);
+  fflush(stdout);
+
+  return;
 }
 
   __attribute__((section(".init_array"))) void *__init = my_init;
