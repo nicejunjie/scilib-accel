@@ -22,9 +22,9 @@ int fsize = sizeof(farray) / sizeof(farray[0]);
 
 void my_init(){
 // fprintf(stderr, "SCILIB-accel DL");
-// disable THP for auto-page migration
 #ifdef AUTO_NUMA
-//    prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0);
+  if (getpagesize() == 65536)  // 64K page, turn off THP 
+      prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0);
 #endif
 
 #ifdef NVIDIA
@@ -51,12 +51,11 @@ void my_fini(){
        fprintf(stderr, "%10s time: total= %15.6f, compute= %15.6f, other= %15.6f\n", farray[i].f0, farray[i].t0, farray[i].t1, farray[i].t0-farray[i].t1) ;
   }
 
-
   fflush(stderr);
   fflush(stdout);
-
+  
   return;
 }
 
-  __attribute__((section(".init_array"))) void *__init = my_init;
-  __attribute__((section(".fini_array"))) void *__fini = my_fini;
+__attribute__((section(".init_array"))) void *__init = my_init;
+__attribute__((section(".fini_array"))) void *__fini = my_fini;

@@ -104,6 +104,8 @@ void move_numa(double *ptr, size_t size, int target_node) {
 #endif
 
     free(page_addrs);
+    free(nodes);
+    free(status);
 
     tnuma=mysecond()-tnuma;
     //printf("element numa\n");
