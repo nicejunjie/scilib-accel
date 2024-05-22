@@ -23,14 +23,15 @@ TARGET1 = scilib-dbi.so
 TARGET2 = scilib-dl.so
 
 #CPPFLAGS = -DGPUCOPY
- CPPFLAGS = -DAUTO_NUMA 
+#CPPFLAGS = -DAUTO_NUMA 
 #MEMMODEL= -gpu=unified 
+ MEMMODEL= -gpu=nomanaged
 CPPFLAGS += -D$(GPUARCH)
 
 
 CFLAGS = -O2 -mp -fPIC -w  -g $(INCLUDE) $(CPPFLAGS) $(MEMMODEL)
 CFLAGS1 = $(CFLAGS) -DDBI -I./$(FRIDA_DIR)
-FFLAGS = -O2 -mp -g -mcmodel=large $(MEMMODEL)
+FFLAGS = -O2 -mp -g -mcmodel=large #$(MEMMODEL)
 
 #----------------------------
 
@@ -101,20 +102,20 @@ print-nvhome:
 
 
 # ---------------------- run tests ---------------------------------------
-test_dgemm.x: test_dgemm.f90 utils.o
+test_dgemm.x: test_dgemm.f90 utils-dbi.o
 	pgf90 -o $@ $^  -g -lnuma $(BLAS) ${FFLAGS}
 
 run: run1 run2
 
 run1: test_dgemm.x $(TARGET1)
 	export OMP_NUM_THREADS=72
-	time echo 20816 2400 32 5 | LD_PRELOAD=./$(TARGET1) ./test_dgemm.x
+	time echo 20816 2400 32000 10 | LD_PRELOAD=./$(TARGET1) ./test_dgemm.x
 
 run2: test_dgemm.x $(TARGET2)
 	export OMP_NUM_THREADS=72
-	time echo 20816 2400 32 5 | LD_PRELOAD=./$(TARGET2) ./test_dgemm.x
+	time echo 20816 2400 32000 10 | LD_PRELOAD=./$(TARGET2) ./test_dgemm.x
 # ------------------------------------------------------------------------
 
 .PHONY: clean
 clean:
-	rm -rf test_dgemm.x $(TARGET) $(OBJ1) $(OBJ2) $(FRIDA_DIR)
+	rm -rf test_dgemm.x $(TARGET1) $(TARGET2) $(OBJ1) $(OBJ2) $(FRIDA_DIR)
