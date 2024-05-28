@@ -104,7 +104,7 @@ void move_numa(double *ptr, size_t size, int target_node) {
 #endif
 
     free(page_addrs);
-    free(nodes);
+    //free(nodes); ////somehow not freeing nodes makes PARSEC run much faster 250s to 235s. 
     free(status);
 
     tnuma=mysecond()-tnuma;
