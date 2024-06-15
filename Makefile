@@ -103,13 +103,13 @@ print-nvhome:
 
 # ---------------------- run tests ---------------------------------------
 test_dgemm.x: test_dgemm.f90 utils-dbi.o
-	pgf90 -o $@ $^  -g -lnuma $(BLAS) ${FFLAGS}
+	pgf90 -o $@ $^  -g -lnuma $(BLAS) ${FFLAGS} ${MEMMODEL}
 
 run: run1 run2
 
 run1: test_dgemm.x $(TARGET1)
 	export OMP_NUM_THREADS=72
-	time echo 20816 2400 32000 10 | LD_PRELOAD=./$(TARGET1) ./test_dgemm.x
+	time echo 32 2400 93536 10 | LD_PRELOAD=./$(TARGET1) ./test_dgemm.x
 
 run2: test_dgemm.x $(TARGET2)
 	export OMP_NUM_THREADS=72

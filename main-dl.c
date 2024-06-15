@@ -20,7 +20,7 @@ freplace farray[] = {
 };
 int fsize = sizeof(farray) / sizeof(farray[0]);
 
-void my_init(){
+void elf_init(){
 // fprintf(stderr, "SCILIB-accel DL");
 #ifdef AUTO_NUMA
   if (getpagesize() == 65536)  // 64K page, turn off THP 
@@ -40,7 +40,7 @@ void my_init(){
 }
 
 
-void my_fini(){
+void elf_fini(){
 
 #ifdef NVIDIA
   nvidia_fini();
@@ -57,5 +57,5 @@ void my_fini(){
   return;
 }
 
-__attribute__((section(".init_array"))) void *__init = my_init;
-__attribute__((section(".fini_array"))) void *__fini = my_fini;
+__attribute__((section(".init_array"))) void *__init = elf_init;
+__attribute__((section(".fini_array"))) void *__fini = elf_fini;

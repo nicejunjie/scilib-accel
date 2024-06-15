@@ -54,7 +54,7 @@ void move_numa(double *ptr, size_t size, int target_node) {
     //printf("size in move_numa=%d, array size=%d\n",size, size/8);
     double tnuma=mysecond();
     int PAGE_SIZE = getpagesize();
-    int rc=0;
+    size_t rc=0;
     size_t num_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
     int *status = malloc(num_pages*sizeof(int));
     int *nodes = malloc(num_pages*sizeof(int));
@@ -71,9 +71,15 @@ void move_numa(double *ptr, size_t size, int target_node) {
 
 #define MOVE_BULK   //OMP parallelized version is slower due to too many concurrencies when all cores are used. 
 #ifdef MOVE_BULK
-    rc=move_pages(0, num_pages, page_addrs, nodes, status, 0);
+    rc=move_pages(0, num_pages, page_addrs, nodes, status, MPOL_MF_MOVE);
     if(rc!=0) {
-        if(rc > 0) fprintf(stderr, "warning: %d pages not moved\n", rc); 
+        if(rc > 0) {
+                fprintf(stderr, "warning: %d pages not moved\n", rc); 
+                for (int i = 0; i < num_pages; i++) 
+                   if (status[i] < 0) {  // Check if there's an error for this page
+                       fprintf(stderr, "Page %d (at %d) not moved, error: %d %s\n", i, which_numa(page_addrs[i]),status[i],strerror(-status[i]));
+                   }
+        }
         if(rc < 0) {fprintf(stderr, "error: page migration failed\n"); exit(-1);} 
     }
 #else
@@ -88,7 +94,7 @@ void move_numa(double *ptr, size_t size, int target_node) {
             if (thread_rc != 0) {
                 #pragma omp critical
                 {
-                    if (thread_rc > 0) fprintf(stderr, "warning: %d pages not moved\n", thread_rc);
+                  //  if (thread_rc > 0) fprintf(stderr, "warning: %d pages not moved\n", thread_rc);
                     if (thread_rc < 0) {
                         fprintf(stderr, "error: page migration failed\n");
                         exit(-1);
@@ -110,7 +116,10 @@ void move_numa(double *ptr, size_t size, int target_node) {
     tnuma=mysecond()-tnuma;
     //printf("element numa\n");
     //for (int i =0; i<size/8; i++) printf("%d %d\n",i,which_numa(ptr+i));
-    printf("move_numa time %15.6f of %lu pages\n", tnuma, num_pages);
+    if ( rc > 0) 
+       printf("move_numa time %15.6f of %lu pages (%lu not moved)\n", tnuma, num_pages, rc);
+    else
+       printf("move_numa time %15.6f of %lu pages\n", tnuma, num_pages);
     //mtime_dmove+=tnuma;
     return;
 }

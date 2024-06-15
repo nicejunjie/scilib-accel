@@ -222,7 +222,17 @@ void _DGEMM( const char* transa, const char* transb, const int* m, const int* n,
     if ( inumaA == 0 ) move_numa(A, sizeA, NUMA_HBM);
     if ( inumaB == 0 ) move_numa(B, sizeB, NUMA_HBM);
     if ( inumaC == 0 ) move_numa(C, sizeC, NUMA_HBM);
+/*
+#else  //experiment advise location for cuda managed memory
+    int device_id;
+    cudaGetDevice(&device_id);
+
+    cudaMemAdvise(A, sizeA, cudaMemAdviseSetPreferredLocation, device_id);
+    cudaMemAdvise(B, sizeB, cudaMemAdviseSetPreferredLocation, device_id);
+    cudaMemAdvise(C, sizeC, cudaMemAdviseSetPreferredLocation, device_id);
+*/
 #endif
+
 
     farray[fi].t1 -= mysecond();
     CUBLAS_CHECK(cublasDgemm(handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc));

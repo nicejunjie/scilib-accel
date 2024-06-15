@@ -22,11 +22,14 @@ void* malloc(size_t size) {
     fprintf(stderr, "my malloc\n");
     void *ptr; 
 //    ptr = real_malloc(size);
+/*
     cudaError_t err = cudaMallocManaged(&ptr, size, cudaMemAttachGlobal);
     if (err != cudaSuccess) {
         fprintf(stderr, "cudaMallocManaged failed: %s\n", cudaGetErrorString(err));
         exit(1);
     }
+*/
+    ptr=malloc_managed(size);
 
     fprintf(stderr, "mymalloc(%zu) = %p (pid=%d)\n", size, ptr, getpid());
 
