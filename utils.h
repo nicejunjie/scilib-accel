@@ -23,7 +23,7 @@ double mysecond2_();
 
 
 /*  NUMA TOOLS */
-int which_numa(double *var);
+int which_numa(void *var);
 
 /** 
  * @brief move memory page
@@ -34,7 +34,7 @@ int which_numa(double *var);
  *
  * @return void
 */
-void move_numa(double *ptr, unsigned long size, int target_node);
+void move_numa(void *ptr, unsigned long size, int target_node);
 
 
 int check_MPI();

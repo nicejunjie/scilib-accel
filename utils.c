@@ -37,7 +37,8 @@ double mysecond2_() {return mysecond2();}
 
 
 
-int which_numa(double *var) {
+int which_numa(void *var) {
+ //return 0;
  void * ptr_to_check = var;
  int status[1];
  int ret_code;
@@ -49,7 +50,7 @@ int which_numa(double *var) {
 }
 
 
-void move_numa(double *ptr, size_t size, int target_node) {
+void move_numa(void *ptr, size_t size, int target_node) {
 // size in Bytes
     //printf("size in move_numa=%d, array size=%d\n",size, size/8);
     double tnuma=mysecond();
@@ -63,7 +64,7 @@ void move_numa(double *ptr, size_t size, int target_node) {
     // Populate the array with page addresses
     #pragma omp parallel for
     for (size_t i = 0; i < num_pages; i++) {
-        page_addrs[i] = ptr + (i * PAGE_SIZE / sizeof(double));
+        page_addrs[i] = ptr + (i * PAGE_SIZE );
         nodes[i]=target_node;
         status[i]=-1;
     }
