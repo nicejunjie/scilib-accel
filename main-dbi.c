@@ -1,18 +1,13 @@
-/*
- * Compile with:
- *
- * gcc -ffunction-sections -fdata-sections frida-gum-example.c -o frida-gum-example -L. -lfrida-gum -ldl -lrt -lresolv -lm -pthread -static-libgcc -Wl,-z,noexecstack,--gc-sections
- *
- * Visit https://frida.re to learn more about Frida.
- */
-
 #include "frida-gum.h"
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdio.h>
+
 
 #include "utils.h"
 #include "init.h"
+#include "global.h"
 
 #ifdef NVIDIA
 #include "nvidia.h"
@@ -30,13 +25,23 @@ freplace farray[] = {
 };
 int fsize = sizeof(farray) / sizeof(farray[0]);
 
+char *argv_o;
+int skip_flag; 
 
 void elf_init(){
-// fprintf(stderr,"SCILIB-accel DBI");
-#ifdef AUTO_NUMAx
-  if (getpagesize() == 65536)  // 64K page, turn off THP 
+
+  get_argv0(&argv_o);
+  skip_flag = check_string(argv_o);
+  if(skip_flag) return;
+
+  init();
+
+#ifdef AUTO_NUMA
+//  if (getpagesize() == 65536)  // 64K page, turn off THP 
+    if (env_thpoff == 1) 
       prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0);
 #endif
+  
 
 #ifdef NVIDIA
   nvidia_init();
@@ -66,6 +71,9 @@ void elf_init(){
 
 
 void elf_fini(){
+
+  if(skip_flag) return;
+
   for( int i=0; i< fsize; i++) {
     if (hook_address[i]) gum_interceptor_revert(interceptor, hook_address[i]);
   }

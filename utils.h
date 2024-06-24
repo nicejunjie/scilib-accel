@@ -1,5 +1,6 @@
 
 
+/*
 #include <time.h>
 #include <sys/time.h>
 #include <numaif.h>
@@ -8,6 +9,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #define NUMA_HBM 1
+*/
 
 
 /* Timer Tools */
@@ -23,7 +25,8 @@ double mysecond2_();
 
 
 /*  NUMA TOOLS */
-int which_numa(void *var);
+int which_numa(void *var, size_t bytes);
+int which_numa2(void *var);
 
 /** 
  * @brief move memory page

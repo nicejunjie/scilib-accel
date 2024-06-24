@@ -22,5 +22,3 @@ enum findex{
     X("zgemm_", "myzgemm"), \
     // Add more elements as needed
 
-
-

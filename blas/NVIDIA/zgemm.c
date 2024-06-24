@@ -1,4 +1,3 @@
-#include "init.h"
 #include "myblas.h"
 
 #ifdef GEMM3M
@@ -19,7 +18,7 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
     enum findex fi = zgemm; 
     static void (*orig_f)() = NULL; 
 
-    farray[fi].t0 -= mysecond();
+    DEBUG1(farray[fi].t0 -= mysecond());
 
     double avgn=cbrt(*m)*cbrt(*n)*cbrt(*k);
 
@@ -35,19 +34,22 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
     double beta_abs = cuCabs( *beta2);
     int ic = (beta_abs > 0.00000001) ? 2:1; 
 
-    if(avgn<500)  {
-         //  printf("%s %.1f\n", "zgemm on cpu", avgn);
+    if(avgn<env_matrix_offload_size)  {
+         DEBUG2(fprintf(stderr, "cpu: zgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, lda=%d, ldb=%d, ldc=%d, alpha=(%.1e, %.1e), beta=(%.1e, %.1e)\n",
+           *transa, *transb, *m, *n, *k, *lda, *ldb, *ldc, creal(*(double complex*)alpha), cimag(*(double complex*)alpha), creal(*(double complex*)beta), cimag(*(double complex*)beta)));
+
          if (!orig_f) orig_f = farray[fi].fptr;
-         farray[fi].t1 -= mysecond();
-         orig_f(transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc); 
-         double ts = mysecond();
-         farray[fi].t1 += ts;
-         farray[fi].t0 += ts;
+         DEBUG1(farray[fi].t1 -= mysecond());
+         orig_f(transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
+         double ts;
+         DEBUG1(ts = mysecond());
+         DEBUG1(farray[fi].t1 += ts);
+         DEBUG1(farray[fi].t0 += ts);
          return;
     }
 
-    fprintf(stderr,"gpu: zgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, lda=%d, ldb=%d, ldc=%d\n",
-        *transa, *transb, *m, *n, *k, *lda, *ldb, *ldc);
+    DEBUG2(fprintf(stderr, "gpu: zgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, lda=%d, ldb=%d, ldc=%d, alpha=(%.1e, %.1e), beta=(%.1e, %.1e)\n",
+        *transa, *transb, *m, *n, *k, *lda, *ldb, *ldc, creal(*(double complex*)alpha), cimag(*(double complex*)alpha), creal(*(double complex*)beta), cimag(*(double complex*)beta)));
 /*
    // alpla and beta are complex
    printf("gpu: zgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=%.1f, lda=%d, ldb=%d, beta=%.1f, ldc=%d\n",
@@ -80,8 +82,10 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
 #ifdef GPUCOPY
     cuDoubleComplex *d_A, *d_B, *d_C;
 
-#define SUBCOPY
-#define SUBTMP  //only copy a submatrix      
+//#define SUBCOPY  // only copy the submatrix
+//#define SUBTMP  
+////memcpy the submatrix to a tmp matrix and cudamemcpy to GPU, 
+//otherwise copy one column at a time directly to GPU.
 //MuST:  80s with all copy,  106s without subtmp submatrix copy, 67s with subtmp
 #ifdef SUBCOPY 
     bool subA=false, subB=false, subC=false;
@@ -138,6 +142,7 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
         memcpy(tempA + j * lda_gpu, (cuDoubleComplex*)A + j * *lda, A_Op_row * size_type);
       CUDA_CHECK(cudaMemcpyAsync(d_A, tempA, sizeA_gpu, cudaMemcpyHostToDevice, stream));
 #else 
+#pragma omp parallel for
       for (int j = 0; j < A_Op_col; j++) 
         CUDA_CHECK(cudaMemcpyAsync(d_A + j * lda_gpu, (cuDoubleComplex*)A + j * *lda, A_Op_row * size_type,
                                  cudaMemcpyHostToDevice, stream));
@@ -184,10 +189,10 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
     if (subB) free(tempB);
 #endif
 
-    farray[fi].t1 -= mysecond();
+    DEBUG1(farray[fi].t1 -= mysecond());
     CUBLAS_CHECK(_CUBLASZGEMM(handle, transA, transB, *m, *n, *k, alpha, d_A, lda_gpu, d_B, ldb_gpu, beta, d_C, ldc_gpu));
     CUDA_CHECK(cudaDeviceSynchronize());
-    farray[fi].t1 += mysecond();
+    DEBUG1(farray[fi].t1 += mysecond());
 
     if(subC) {
 #ifdef SUBTMP
@@ -206,45 +211,56 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
     else 
       CUDA_CHECK(cudaMemcpyAsync(C, d_C, sizeC, cudaMemcpyDeviceToHost, stream));
 
-#else 
+#else  // not copying submatrix but copy all
     CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, stream));
     CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, stream));
     CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC, stream));
+    CUDA_CHECK(cudaDeviceSynchronize());
 
     CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    farray[fi].t1 -= mysecond();
+    DEBUG1(farray[fi].t1 -= mysecond());
     CUBLAS_CHECK(_CUBLASZGEMM(handle, transA, transB, *m, *n, *k, alpha, d_A, *lda, d_B, *ldb, beta, d_C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
-    farray[fi].t1 += mysecond();
-
+    DEBUG1(farray[fi].t1 += mysecond());
     CUDA_CHECK(cudaMemcpyAsync(C, d_C, sizeC, cudaMemcpyDeviceToHost, stream));
 #endif
     CUDA_CHECK(cudaDeviceSynchronize());
     CUDA_CHECK(cudaFreeAsync(d_A, stream));
     CUDA_CHECK(cudaFreeAsync(d_B, stream));
     CUDA_CHECK(cudaFreeAsync(d_C, stream));
+
 #else  //not GPUCPOY
 
 #ifdef AUTO_NUMA
-    int inumaA=which_numa(A);
-    int inumaB=which_numa(B);
-    int inumaC=which_numa(C);
+    int inumaA=which_numa(A, sizeA);
+    int inumaB=which_numa(B, sizeB);
+    int inumaC=which_numa(C, sizeC);
     if ( inumaA == 0 ) move_numa(A, (size_t)sizeA, NUMA_HBM);
     if ( inumaB == 0 ) move_numa(B, (size_t)sizeB, NUMA_HBM);
     if ( inumaC == 0 ) move_numa(C, (size_t)sizeC, NUMA_HBM);
+#else  //experiment advise location for cuda managed memory
+  
+    static int device_id=-1;
+    if(device_id == -1) cudaGetDevice(&device_id);
+
+    cudaMemAdvise(A, sizeA, cudaMemAdviseSetPreferredLocation, device_id);
+    cudaMemAdvise(B, sizeB, cudaMemAdviseSetPreferredLocation, device_id);
+    cudaMemAdvise(C, sizeC, cudaMemAdviseSetPreferredLocation, device_id);
+  
+  
 #endif
 
-    farray[fi].t1 -= mysecond();
+    DEBUG1(farray[fi].t1 -= mysecond());
     CUBLAS_CHECK(_CUBLASZGEMM(handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
-    farray[fi].t1 += mysecond();
+    DEBUG1(farray[fi].t1 += mysecond());
 #endif
 
-    farray[fi].t0 += mysecond();
+    DEBUG1(farray[fi].t0 += mysecond());
 
     return;
 }

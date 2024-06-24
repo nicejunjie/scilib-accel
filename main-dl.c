@@ -3,9 +3,12 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdio.h>
+
 
 #include "utils.h"
 #include "init.h"
+#include "global.h"
 
 #ifdef NVIDIA
 #include "nvidia.h"
@@ -21,11 +24,15 @@ freplace farray[] = {
 int fsize = sizeof(farray) / sizeof(farray[0]);
 
 void elf_init(){
-// fprintf(stderr, "SCILIB-accel DL");
+
+  init();
+
+/*
 #ifdef AUTO_NUMA
   if (getpagesize() == 65536)  // 64K page, turn off THP 
       prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0);
 #endif
+*/
 
 #ifdef NVIDIA
   nvidia_init();

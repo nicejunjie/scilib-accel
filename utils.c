@@ -1,6 +1,15 @@
 
+//#include "utils.h"
+#include "global.h"
 
-#include "utils.h"
+#include <time.h>
+#include <sys/time.h>
+#include <numaif.h>
+#include <numa.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <stdio.h>
+
 
 
 double mysecond()
@@ -34,10 +43,28 @@ double mysecond_() {return mysecond();}
 double mysecond2_() {return mysecond2();}
 
 
+int which_numa(void *var, size_t bytes) {
+    int status[3];
+    int ret_code;
+    status[0] = -1;
+    status[1] = -1;
+    status[2] = -1;
+
+    void *ptr_to_check[3];
+    ptr_to_check[0] = var;
+    ptr_to_check[1] = var + bytes / sizeof(void) / 2;
+    ptr_to_check[2] = var + bytes / sizeof(void);
+
+    ret_code = move_pages(0 /* self memory */, 3, ptr_to_check, NULL, status, 0);
+    
+    if (status[0] == 0 || status[1] == 0 || status[2] == 0) {
+        return 0;
+    }
+    return 1;
+}
 
 
-
-int which_numa(void *var) {
+int which_numa2(void *var) {
  //return 0;
  void * ptr_to_check = var;
  int status[1];
@@ -64,7 +91,7 @@ void move_numa(void *ptr, size_t size, int target_node) {
     // Populate the array with page addresses
     #pragma omp parallel for
     for (size_t i = 0; i < num_pages; i++) {
-        page_addrs[i] = ptr + (i * PAGE_SIZE );
+        page_addrs[i] = ptr + (i * PAGE_SIZE )/sizeof(void);
         nodes[i]=target_node;
         status[i]=-1;
     }
@@ -78,7 +105,7 @@ void move_numa(void *ptr, size_t size, int target_node) {
                 fprintf(stderr, "warning: %d pages not moved\n", rc); 
                 for (int i = 0; i < num_pages; i++) 
                    if (status[i] < 0) {  // Check if there's an error for this page
-                       fprintf(stderr, "Page %d (at %d) not moved, error: %d %s\n", i, which_numa(page_addrs[i]),status[i],strerror(-status[i]));
+                       fprintf(stderr, "Page %d (at %d) not moved, error: %d %s\n", i, which_numa2(page_addrs[i]),status[i],strerror(-status[i]));
                    }
         }
         if(rc < 0) {fprintf(stderr, "error: page migration failed\n"); exit(-1);} 
@@ -111,17 +138,17 @@ void move_numa(void *ptr, size_t size, int target_node) {
 #endif
 
     free(page_addrs);
-    //free(nodes); ////somehow not freeing nodes makes PARSEC run much faster 250s to 235s. 
+    free(nodes); ////somehow not freeing nodes makes PARSEC run much faster 250s to 235s. 
     free(status);
 
     tnuma=mysecond()-tnuma;
     //printf("element numa\n");
     //for (int i =0; i<size/8; i++) printf("%d %d\n",i,which_numa(ptr+i));
+
     if ( rc > 0) 
-       printf("move_numa time %15.6f of %lu pages (%lu not moved)\n", tnuma, num_pages, rc);
+       DEBUG2(fprintf(stderr,"move_numa time %15.6f of %lu pages (%lu not moved)\n", tnuma, num_pages, rc));
     else
-       printf("move_numa time %15.6f of %lu pages\n", tnuma, num_pages);
-    //mtime_dmove+=tnuma;
+       DEBUG2(fprintf(stderr,"move_numa time %15.6f of %lu pages\n", tnuma, num_pages));
     return;
 }
 
@@ -140,6 +167,21 @@ int check_MPI() {
     else
         return 0;
 }
+
+int get_MPI_local_rank() {
+    char* pmi_rank = getenv("MPI_LOCALRANKID");
+    char* mvapich_rank = getenv("MV2_COMM_WORLD_LOCAL_RANK");
+    char* ompi_rank = getenv("OMPI_COMM_WORLD_LOCAL_RANK");
+    if (pmi_rank != NULL)
+        return atoi(pmi_rank);
+    else if (mvapich_rank != NULL)
+        return atoi(mvapich_rank);
+    else if (ompi_rank != NULL)
+        return atoi(ompi_rank);
+    else
+        return -1;
+}
+
 
 
 

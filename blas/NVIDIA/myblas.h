@@ -6,13 +6,13 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "complex.h"
 
 
 #include "nvidia.h" 
-
-#include "common.h"
-
+#include "global.h"
 #include "utils.h"
+#include "init.h"
 
 
 

@@ -35,7 +35,7 @@ FFLAGS = -O2 -mp -g -mcmodel=large #$(MEMMODEL)
 
 #----------------------------
 
-COMMON_SRCS = nvidia.c utils.c blas/$(GPUARCH)/dgemm.c blas/$(GPUARCH)/zgemm.c
+COMMON_SRCS = init.c nvidia.c utils.c blas/$(GPUARCH)/dgemm.c blas/$(GPUARCH)/zgemm.c
 
 SRCS1 = main-dbi.c
 SRCS1ALL = $(COMMON_SRCS) $(SRCS1)
@@ -102,14 +102,15 @@ print-nvhome:
 
 
 # ---------------------- run tests ---------------------------------------
-test_dgemm.x: test_dgemm.f90 utils-dbi.o
-	pgf90 -o $@ $^  -g -lnuma $(BLAS) ${FFLAGS} ${MEMMODEL}
+test_dgemm.x: test_dgemm.f90
+	pgf90 -o $@ $^ $(BLAS) ${FFLAGS} ${MEMMODEL}
 
 run: run1 run2
 
 run1: test_dgemm.x $(TARGET1)
 	export OMP_NUM_THREADS=72
-	time echo 32 2400 93536 10 | LD_PRELOAD=./$(TARGET1) ./test_dgemm.x
+	time echo 32 2400 93536 5 | LD_PRELOAD=./$(TARGET1) ./test_dgemm.x
+	#time echo 6000 4000 8000 5 | LD_PRELOAD=./$(TARGET1) ./test_dgemm.x
 
 run2: test_dgemm.x $(TARGET2)
 	export OMP_NUM_THREADS=72
