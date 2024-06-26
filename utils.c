@@ -9,6 +9,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <limits.h>
+
 
 
 
@@ -182,8 +184,21 @@ int get_MPI_local_rank() {
         return -1;
 }
 
-
-
+void get_exe_path(char **path){
+    char *exe_path=malloc(PATH_MAX);
+//    char exe_path[PATH_MAX];  //destroyed after call
+    ssize_t len = readlink("/proc/self/exe", exe_path, PATH_MAX-1);
+    if (len != -1) {
+        exe_path[len] = '\0';
+        //printf("Executable path: %s,  len: %zd\n", exe_path, len);
+       *path = exe_path;
+    } else {
+        perror("Failed to get executable path");
+        free(exe_path);
+        *path = NULL;
+        return;
+    }
+}
 
 void get_argv0(char **argv0) {
     char* buffer = (char *)malloc(sizeof(char) * (1024));
@@ -206,16 +221,10 @@ void get_argv0(char **argv0) {
 }
 
 
-#define check_list_size 14
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof(arr[0]))
 /* Check if string ends with commands to be ignored*/
 int check_string(const char *str) {
-    const char *check_list[check_list_size] = {
-        "/bin/sh",
-        "/bin/bash",
-        "lscpu",
-        "bin/ssh",
-        "hostname",
-        //"awk", "sed", "grep", "lscpu", "mktemp", "rm", "mv",
+    const char *exe_list[] = {
         "ibrun",
         "mpirun",
         "mpirun_rsh",
@@ -224,16 +233,37 @@ int check_string(const char *str) {
         "numactl",
         "srun",
         "hydra_bstrap_proxy",
-        "hydra_pmi_proxy"
+        "hydra_pmi_proxy",
+        "pip",
+        "pip3",
+        "virtualenv",
     };
 
-    for (int i = 0; i < check_list_size; i++) {
-        size_t len = strlen(check_list[i]);
-        if (strlen(str) >= len && strcmp(str + strlen(str) - len, check_list[i]) == 0) {
-            //printf("The string %s ends with %s\n", str, check_list[i]);
+    const char *dir_list[] = {
+        "/bin",
+        "/usr",
+        "/sbin",
+    };
+
+    // Check if the program path starts with any in the dir_list
+    for (int i = 0; i < ARRAY_SIZE(dir_list); i++) {
+        size_t len = strlen(dir_list[i]);
+        //fprintf(stderr, "str=%s\n", str);
+        //fprintf(stderr, "dir_list=%s\n", dir_list[i]);
+        if (strlen(str) >= len && strncmp(str, dir_list[i], len) == 0) {
+        //    fprintf(stderr, "skip\n");
             return 1;
         }
     }
+    // Check if the executable name matches any in the list
+    for (int i = 0; i < ARRAY_SIZE(exe_list); i++) {
+        size_t len = strlen(exe_list[i]);
+        if (strlen(str) >= len && strcmp(str + strlen(str) - len, exe_list[i]) == 0) {
+       //     fprintf(stderr, "skip\n");
+            return 1;
+        }
+    }
+
     return 0;
 }
 

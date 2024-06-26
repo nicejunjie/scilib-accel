@@ -34,7 +34,7 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
     double beta_abs = cuCabs( *beta2);
     int ic = (beta_abs > 0.00000001) ? 2:1; 
 
-    if(avgn<env_matrix_offload_size)  {
+    if(avgn<scilib_matrix_offload_size)  {
          DEBUG2(fprintf(stderr, "cpu: zgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, lda=%d, ldb=%d, ldc=%d, alpha=(%.1e, %.1e), beta=(%.1e, %.1e)\n",
            *transa, *transb, *m, *n, *k, *lda, *ldb, *ldc, creal(*(double complex*)alpha), cimag(*(double complex*)alpha), creal(*(double complex*)beta), cimag(*(double complex*)beta)));
 
@@ -79,7 +79,8 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
     }
 
 
-#ifdef GPUCOPY
+//#ifdef GPUCOPY
+if (scilib_offload_mode==1) {
     cuDoubleComplex *d_A, *d_B, *d_C;
 
 //#define SUBCOPY  // only copy the submatrix
@@ -233,15 +234,19 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
     CUDA_CHECK(cudaFreeAsync(d_B, stream));
     CUDA_CHECK(cudaFreeAsync(d_C, stream));
 
-#else  //not GPUCPOY
+} //#else  //not GPUCPOY
+else {
 
-#ifdef AUTO_NUMA
-    int inumaA=which_numa(A, sizeA);
-    int inumaB=which_numa(B, sizeB);
-    int inumaC=which_numa(C, sizeC);
-    if ( inumaA == 0 ) move_numa(A, (size_t)sizeA, NUMA_HBM);
-    if ( inumaB == 0 ) move_numa(B, (size_t)sizeB, NUMA_HBM);
-    if ( inumaC == 0 ) move_numa(C, (size_t)sizeC, NUMA_HBM);
+//#ifdef AUTO_NUMA
+    if(scilib_offload_mode == 3){
+       int inumaA=which_numa(A, sizeA);
+       int inumaB=which_numa(B, sizeB);
+       int inumaC=which_numa(C, sizeC);
+       if ( inumaA == 0 ) move_numa(A, (size_t)sizeA, NUMA_HBM);
+       if ( inumaB == 0 ) move_numa(B, (size_t)sizeB, NUMA_HBM);
+       if ( inumaC == 0 ) move_numa(C, (size_t)sizeC, NUMA_HBM);
+    }
+/*
 #else  //experiment advise location for cuda managed memory
   
     static int device_id=-1;
@@ -250,15 +255,14 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
     cudaMemAdvise(A, sizeA, cudaMemAdviseSetPreferredLocation, device_id);
     cudaMemAdvise(B, sizeB, cudaMemAdviseSetPreferredLocation, device_id);
     cudaMemAdvise(C, sizeC, cudaMemAdviseSetPreferredLocation, device_id);
-  
-  
 #endif
+*/
 
     DEBUG1(farray[fi].t1 -= mysecond());
     CUBLAS_CHECK(_CUBLASZGEMM(handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
     DEBUG1(farray[fi].t1 += mysecond());
-#endif
+}  //#endif
 
     DEBUG1(farray[fi].t0 += mysecond());
 

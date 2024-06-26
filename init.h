@@ -12,6 +12,7 @@ extern freplace farray[] ;
 enum findex{
   sgemm,
   dgemm,
+  cgemm,
   zgemm,
 };
 
@@ -19,6 +20,7 @@ enum findex{
 #define INIT_FARRAY \
     X("sgemm_", "mysgemm"), \
     X("dgemm_", "mydgemm"), \
+    X("cgemm_", "mycgemm"), \
     X("zgemm_", "myzgemm"), \
     // Add more elements as needed
 

@@ -25,20 +25,20 @@ freplace farray[] = {
 };
 int fsize = sizeof(farray) / sizeof(farray[0]);
 
-char *argv_o;
+char *exe_path;
 int skip_flag; 
 
 void elf_init(){
 
-  get_argv0(&argv_o);
-  skip_flag = check_string(argv_o);
+  get_exe_path(&exe_path);
+  skip_flag = check_string(exe_path);
   if(skip_flag) return;
 
   init();
 
 #ifdef AUTO_NUMA
 //  if (getpagesize() == 65536)  // 64K page, turn off THP 
-    if (env_thpoff == 1) 
+    if (scilib_thpoff == 1) 
       prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0);
 #endif
   

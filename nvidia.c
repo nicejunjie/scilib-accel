@@ -2,12 +2,13 @@
 #include <stdio.h>
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
+#include "global.h"
 
 cublasStatus_t status;
 cublasHandle_t handle;
-#ifdef GPUCOPY
-cudaStream_t stream;
-#endif
+//#ifdef GPUCOPY
+          cudaStream_t stream;
+//#endif
 
 
 void nvidia_init(){
@@ -19,9 +20,10 @@ void nvidia_init(){
         return;
     }
 
-#ifdef GPUCOPY
+//#ifdef GPUCOPY
+if(scilib_offload_mode == 1)
     cudaStreamCreate(&stream);
-#endif 
+//#endif 
 
     return;
 }
@@ -31,9 +33,10 @@ void nvidia_fini(){
 
 /*  CUBLAS  */
     cublasDestroy(handle);
-#ifdef GPUCOPY
+//#ifdef GPUCOPY
+if(scilib_offload_mode == 1)
     cudaStreamDestroy(stream);
-#endif
+//#endif
 
     return;
 }

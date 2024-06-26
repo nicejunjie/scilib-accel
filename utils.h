@@ -1,17 +1,4 @@
 
-
-/*
-#include <time.h>
-#include <sys/time.h>
-#include <numaif.h>
-#include <numa.h>
-#include <sys/mman.h>
-#include <unistd.h>
-#include <stdio.h>
-#define NUMA_HBM 1
-*/
-
-
 /* Timer Tools */
 
 // timer at us accuracy
@@ -41,6 +28,9 @@ void move_numa(void *ptr, unsigned long size, int target_node);
 
 
 int check_MPI();
+int get_MPI_local_rank();
 
+void get_exe_path(char **path);
+void get_argv0(char **argv0);
 
 
