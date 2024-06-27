@@ -10,13 +10,13 @@ Only NVIDIA GPU is supported but may support other GPU in the future.
 
 [recommended] `make dbi` to make only the DBI-based version which works for both dynamically and statically linked BLAS, but needs FRIDA DBI library (downloaded automatically). 
 
-`make dl` to make only the DLSYM-based version which only works dynamically linked BLAS. This version has less feature available.  
+`make dl` to make only the DLSYM-based version which only works with dynamically linked BLAS. This version has fewer features available.  
 
 
 ## Usage: 
-load the chosen library before running your BLAS heavy application.  
+load the chosen library before running your BLAS-heavy application.  
 
-`LD_PRELOAD=$PATH_TO_LIB/scilib-dbi.so` <br /> 
+[recommended] `LD_PRELOAD=$PATH_TO_LIB/scilib-dbi.so` <br /> 
 or  
 `LD_PRELOAD=$PATH_TO_LIB/scilib-dl.so`   
 
