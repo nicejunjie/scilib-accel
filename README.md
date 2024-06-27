@@ -12,7 +12,6 @@ Only NVIDIA GPU is supported but may support other GPU in the future.
 
 `make dl` to make only the DLSYM-based version which only works dynamically linked BLAS. This version has less feature available.  
 
-Change `CPPFLAGS` in Makefile from `-DGPUCOPY`, none (which indicates zero copy), or `-DAUTO_NUMA` to select different data management strategy.  `-DAUTO_NUMA` will work best for most cases on Grace-Hopper, while non UMA GPUs only supports "-DGPUCOPY". 
 
 ## Usage: 
 load the chosen library before running your BLAS heavy application.  
