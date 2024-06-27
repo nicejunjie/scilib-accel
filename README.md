@@ -8,7 +8,7 @@ Only NVIDIA GPU is supported but may support other GPU in the future.
 ## Compile: 
 `make` to make all 
 
-[suggested] `make dbi` to make only the DBI-based version which works for both dynamically and statically linked BLAS, but needs FRIDA DBI library (downloaded automatically). 
+[recommended] `make dbi` to make only the DBI-based version which works for both dynamically and statically linked BLAS, but needs FRIDA DBI library (downloaded automatically). 
 
 `make dl` to make only the DLSYM-based version which only works dynamically linked BLAS. This version has less feature available.  
 
