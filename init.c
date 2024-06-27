@@ -28,7 +28,7 @@ void parse_env_var() {
     scilib_thpoff = env_str ? atoi(env_str) : 0;
 
     env_str = getenv("SCILIB_OFFLOAD_MODE");
-    scilib_offload_mode = env_str ? atoi(env_str) : 2;
+    scilib_offload_mode = env_str ? atoi(env_str) : 3;
     
 }
 
