@@ -21,8 +21,8 @@ or
 `LD_PRELOAD=$PATH_TO_LIB/scilib-dl.so`   
 
 Optionally use the following environmental variables to fine-tune: <br />
-- `SCILIB_DEBUG=[0|1|2]` : 0 - default, 1 - print timing, 2 -- print BLAS input arguments. <br />
-- `SCILIB_MATRIX_OFFLOAD_SIZE=[size]` : size=(mnk)^(1/3), the size above which GPU offload will occur. <br />
+- `SCILIB_DEBUG=[0|1|2]` : 0 - default, no printouts, 1 - print timing, 2 -- print BLAS input arguments. <br />
+- `SCILIB_MATRIX_OFFLOAD_SIZE=[size]` : size=(mnk)^(1/3), default is 500, the size above which GPU offload will occur.  <br />
 - `SCILIB_THPOFF=[0|1]` : 0 - default, use system default THP setting, 1 -- turn off THP.  <br />
 - `SCILIB_OFFLOAD_MODE=[1|2|3]`: different data movement strategies.  <br/>
   - 1: perform cudaMemCpy to/from GPU for every cuBLAS call;  (available on any GPU)  
