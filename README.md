@@ -29,6 +29,9 @@ Optionally use the following environmental variables to fine-tune: <br />
   - 2: use unified memory access without explicit data movement;  (only available on Grace-Hopper)
   - 3: (default) apply First GPU Use Policy, data is migrated to GPU HBM upon the first use of cuBLAS and stay resident on HBM. (Only available on Grace-Hopper)
 
+## Known issues: 
+Bugs from the UCX side were observed, UCX driver somehow interferes with memory pages and causes issue using NUMA 1 (the HBM). Before NVIDIA fixes the bug, UCX has to be turned off: <br /> 
+`mpirun --mca pml ^ucx --mca btl self,vader,tcp -n $rank -map-by node:PE=$nt  $exe`
 
 ## Reference: 
 [Automatic BLAS Offloading on Unified Memory Architecture: A Study on NVIDIA Grace-Hopper](https://arxiv.org/abs/2404.13195)
