@@ -213,14 +213,16 @@ if (scilib_offload_mode==1) {
 else {
 
 //#ifdef AUTO_NUMA
+    int inumaA, inumaB, inumaC;
     if (scilib_offload_mode==3) {
-       int inumaA, inumaB, inumaC;
        inumaA=which_numa(A, sizeA);
        inumaB=which_numa(B, sizeB);
        inumaC=which_numa(C, sizeC);
+       DEBUG3(fprintf(stderr,"a,NUMA location of A,B,C: %d %d %d\n", inumaA, inumaB, inumaC));
        if ( inumaA == 0 ) move_numa(A, sizeA, NUMA_HBM);
        if ( inumaB == 0 ) move_numa(B, sizeB, NUMA_HBM);
        if ( inumaC == 0 ) move_numa(C, sizeC, NUMA_HBM);
+       DEBUG3(fprintf(stderr,"b,NUMA location of A,B,C: %d %d %d\n", inumaA, inumaB, inumaC));
     
 /*
 #else  //experiment advise location for cuda managed memory
@@ -239,6 +241,7 @@ else {
     DEBUG1(farray[fi].t1 -= mysecond());
     CUBLAS_CHECK(cublasDgemm(handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
+       DEBUG3(fprintf(stderr,"c,NUMA location of A,B,C: %d %d %d\n", inumaA, inumaB, inumaC));
     DEBUG1(farray[fi].t1 += mysecond());
 //#endif
 }

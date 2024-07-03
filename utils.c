@@ -55,10 +55,10 @@ int which_numa(void *var, size_t bytes) {
     void *ptr_to_check[3];
     ptr_to_check[0] = var;
     ptr_to_check[1] = var + bytes / sizeof(void) / 2;
-    ptr_to_check[2] = var + bytes / sizeof(void);
+    ptr_to_check[2] = var + bytes / sizeof(void) - 1;
 
     ret_code = move_pages(0 /* self memory */, 3, ptr_to_check, NULL, status, 0);
-    
+    //return status[2];
     if (status[0] == 0 || status[1] == 0 || status[2] == 0) {
         return 0;
     }
@@ -66,7 +66,7 @@ int which_numa(void *var, size_t bytes) {
 }
 
 
-int which_numa2(void *var) {
+int which_numa2(void *var, size_t bytes) {
  //return 0;
  void * ptr_to_check = var;
  int status[1];
@@ -86,9 +86,10 @@ void move_numa(void *ptr, size_t size, int target_node) {
     int PAGE_SIZE = getpagesize();
     size_t rc=0;
     size_t num_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
-    int *status = malloc(num_pages*sizeof(int));
-    int *nodes = malloc(num_pages*sizeof(int));
-    void **page_addrs = malloc(num_pages * sizeof(void *));
+    size_t num_pages_plus = num_pages + 1; //account for the last page
+    int *status = malloc(num_pages_plus*sizeof(int));
+    int *nodes = malloc(num_pages_plus*sizeof(int));
+    void **page_addrs = malloc(num_pages_plus * sizeof(void *));
 
     // Populate the array with page addresses
     #pragma omp parallel for
@@ -97,29 +98,34 @@ void move_numa(void *ptr, size_t size, int target_node) {
         nodes[i]=target_node;
         status[i]=-1;
     }
-    
+      
+    page_addrs[num_pages] = ptr + size/sizeof(void);
+    nodes[num_pages] = target_node;
+    status[num_pages] = -1;
+      
 
-#define MOVE_BULK   //OMP parallelized version is slower due to too many concurrencies when all cores are used. 
+#define MOVE_BULK   //OMP parallelized version is slower (230s->250s) due to too many concurrencies when all cores are used. 
 #ifdef MOVE_BULK
-    rc=move_pages(0, num_pages, page_addrs, nodes, status, MPOL_MF_MOVE);
+    rc=move_pages(0, num_pages_plus, page_addrs, nodes, status, MPOL_MF_MOVE);
     if(rc!=0) {
-        if(rc > 0) {
+        if(rc > 0 && scilib_debug >=3) {
                 fprintf(stderr, "warning: %d pages not moved\n", rc); 
                 for (int i = 0; i < num_pages; i++) 
                    if (status[i] < 0) {  // Check if there's an error for this page
-                       fprintf(stderr, "Page %d (at %d) not moved, error: %d %s\n", i, which_numa2(page_addrs[i]),status[i],strerror(-status[i]));
+                       fprintf(stderr, "Page %d (at %d) not moved, error: %d %s\n", i, which_numa2(page_addrs[i],0),status[i],strerror(-status[i]));
+                       exit(-1);
                    }
         }
         if(rc < 0) {fprintf(stderr, "error: page migration failed\n"); exit(-1);} 
     }
 #else
-    #pragma omp parallel
+    #pragma omp parallel   //need to double check this part
     {
         int thread_rc = 0;
         #pragma omp for
-        for (size_t i = 0; i < num_pages; i += omp_get_num_threads()) {
+        for (size_t i = 0; i < num_pages_plus; i += omp_get_num_threads()) {
             size_t start = i;
-            size_t end = ((i + omp_get_num_threads()) < num_pages) ? (i + omp_get_num_threads()) : num_pages;
+            size_t end = ((i + omp_get_num_threads()) < num_pages_plus) ? (i + omp_get_num_threads()) : num_pages_plus;
             thread_rc = move_pages(0 , end - start, &page_addrs[start], &nodes[start], &status[start], 0);
             if (thread_rc != 0) {
                 #pragma omp critical
@@ -140,12 +146,12 @@ void move_numa(void *ptr, size_t size, int target_node) {
 #endif
 
     free(page_addrs);
-    free(nodes); ////somehow not freeing nodes makes PARSEC run much faster 250s to 235s. 
+    free(nodes);  
     free(status);
 
     tnuma=mysecond()-tnuma;
     //printf("element numa\n");
-    //for (int i =0; i<size/8; i++) printf("%d %d\n",i,which_numa(ptr+i));
+    //for (int i =0; i<size; i++) printf("%d %d\n",i,which_numa(ptr+i,1));
 
     if ( rc > 0) 
        DEBUG2(fprintf(stderr,"move_numa time %15.6f of %lu pages (%lu not moved)\n", tnuma, num_pages, rc));
@@ -251,7 +257,7 @@ int check_string(const char *str) {
         //fprintf(stderr, "str=%s\n", str);
         //fprintf(stderr, "dir_list=%s\n", dir_list[i]);
         if (strlen(str) >= len && strncmp(str, dir_list[i], len) == 0) {
-        //    fprintf(stderr, "skip\n");
+             // fprintf(stderr, "skip due to dir\n");
             return 1;
         }
     }
@@ -259,7 +265,7 @@ int check_string(const char *str) {
     for (int i = 0; i < ARRAY_SIZE(exe_list); i++) {
         size_t len = strlen(exe_list[i]);
         if (strlen(str) >= len && strcmp(str + strlen(str) - len, exe_list[i]) == 0) {
-       //     fprintf(stderr, "skip\n");
+             // fprintf(stderr, "skip due to exe\n");
             return 1;
         }
     }

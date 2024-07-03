@@ -20,4 +20,5 @@ extern int skip_flag;
 // Define the DEBUG macro
 #define DEBUG1(x) do { if (scilib_debug>=1) { x; } } while (0)
 #define DEBUG2(x) do { if (scilib_debug>=2) { x; } } while (0)
+#define DEBUG3(x) do { if (scilib_debug>=3) { x; } } while (0)
 
