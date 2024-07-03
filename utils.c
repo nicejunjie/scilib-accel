@@ -233,16 +233,23 @@ int check_string(const char *str) {
     const char *exe_list[] = {
         "ibrun",
         "mpirun",
+        "orterun",
         "mpirun_rsh",
         "mpiexec",
         "mpiexec.hydra",
-        "numactl",
         "srun",
         "hydra_bstrap_proxy",
         "hydra_pmi_proxy",
+        "numactl",
         "pip",
         "pip3",
         "virtualenv",
+// profilers
+        "map",
+        "scorep",
+        "nvprof",
+        "nsys",
+        "ncu",
     };
 
     const char *dir_list[] = {
@@ -252,20 +259,22 @@ int check_string(const char *str) {
     };
 
     // Check if the program path starts with any in the dir_list
+    //fprintf(stderr, "str=%s\n", str);
+
     for (int i = 0; i < ARRAY_SIZE(dir_list); i++) {
         size_t len = strlen(dir_list[i]);
-        //fprintf(stderr, "str=%s\n", str);
         //fprintf(stderr, "dir_list=%s\n", dir_list[i]);
         if (strlen(str) >= len && strncmp(str, dir_list[i], len) == 0) {
-             // fprintf(stderr, "skip due to dir\n");
+         //     fprintf(stderr, "--skip due to dir\n");
             return 1;
         }
     }
     // Check if the executable name matches any in the list
     for (int i = 0; i < ARRAY_SIZE(exe_list); i++) {
         size_t len = strlen(exe_list[i]);
+        //fprintf(stderr, "exe_list=%s\n", exe_list[i]);
         if (strlen(str) >= len && strcmp(str + strlen(str) - len, exe_list[i]) == 0) {
-             // fprintf(stderr, "skip due to exe\n");
+        //      fprintf(stderr, "--skip due to exe\n");
             return 1;
         }
     }
