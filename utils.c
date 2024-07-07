@@ -234,6 +234,7 @@ int check_string(const char *str) {
         "ibrun",
         "mpirun",
         "orterun",
+        "orted",
         "mpirun_rsh",
         "mpiexec",
         "mpiexec.hydra",
