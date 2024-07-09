@@ -17,8 +17,9 @@ void _CGEMM( const char* transa, const char* transb, const int* m, const int* n,
 
     enum findex fi = cgemm; 
     static void (*orig_f)() = NULL; 
+    double t0=0.0, t1=0.0;
 
-    DEBUG1(farray[fi].t0 -= mysecond());
+    DEBUG1(t0 -= mysecond());
 
     double avgn=cbrt(*m)*cbrt(*n)*cbrt(*k);
 
@@ -39,12 +40,16 @@ void _CGEMM( const char* transa, const char* transb, const int* m, const int* n,
            *transa, *transb, *m, *n, *k, *lda, *ldb, *ldc, crealf(*(float complex*)alpha), cimagf(*(float complex*)alpha), crealf(*(float complex*)beta), cimagf(*(float complex*)beta)));
 
          if (!orig_f) orig_f = farray[fi].fptr;
-         DEBUG1(farray[fi].t1 -= mysecond());
+         DEBUG1(t1 -= mysecond());
          orig_f(transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
          double ts;
          DEBUG1(ts = mysecond());
-         DEBUG1(farray[fi].t1 += ts);
-         DEBUG1(farray[fi].t0 += ts);
+         DEBUG1(t1 += ts);
+         DEBUG1(t0 += ts);
+
+         DEBUG1(farray[fi].t0 += t0);
+         DEBUG1(farray[fi].t1 += t1);
+
          return;
     }
 
@@ -190,10 +195,10 @@ if (scilib_offload_mode==1) {
     if (subB) free(tempB);
 #endif
 
-    DEBUG1(farray[fi].t1 -= mysecond());
+    DEBUG1(t1 -= mysecond());
     CUBLAS_CHECK(_CUBLASCGEMM(handle, transA, transB, *m, *n, *k, alpha, d_A, lda_gpu, d_B, ldb_gpu, beta, d_C, ldc_gpu));
     CUDA_CHECK(cudaDeviceSynchronize());
-    DEBUG1(farray[fi].t1 += mysecond());
+    DEBUG1(t1 += mysecond());
 
     if(subC) {
 #ifdef SUBTMP
@@ -223,10 +228,10 @@ if (scilib_offload_mode==1) {
     CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    DEBUG1(farray[fi].t1 -= mysecond());
+    DEBUG1(t1 -= mysecond());
     CUBLAS_CHECK(_CUBLASCGEMM(handle, transA, transB, *m, *n, *k, alpha, d_A, *lda, d_B, *ldb, beta, d_C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
-    DEBUG1(farray[fi].t1 += mysecond());
+    DEBUG1(t1 += mysecond());
     CUDA_CHECK(cudaMemcpyAsync(C, d_C, sizeC, cudaMemcpyDeviceToHost, stream));
 #endif
     CUDA_CHECK(cudaDeviceSynchronize());
@@ -258,13 +263,18 @@ else {
 #endif
 */
 
-    DEBUG1(farray[fi].t1 -= mysecond());
+    DEBUG1(t1 -= mysecond());
     CUBLAS_CHECK(_CUBLASCGEMM(handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
-    DEBUG1(farray[fi].t1 += mysecond());
+    DEBUG1(t1 += mysecond());
 }  //#endif
 
-    DEBUG1(farray[fi].t0 += mysecond());
+    DEBUG1(t0 += mysecond());
+
+    DEBUG3(fprintf(stderr, "single cgemm timing(s): total= %10.6f, compute= %10.6f, other= %10.6f\n", t0, t1, t0-t1));
+
+    DEBUG1(farray[fi].t0 += t0);
+    DEBUG1(farray[fi].t1 += t1);
 
     return;
 }

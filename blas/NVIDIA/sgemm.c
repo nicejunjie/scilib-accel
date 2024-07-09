@@ -11,8 +11,9 @@ void _SGEMM( const char* transa, const char* transb, const int* m, const int* n,
 
     enum findex fi = sgemm; 
     static void (*orig_f)() = NULL; 
+    double t0=0.0, t1=0.0;
 
-    DEBUG1(farray[fi].t0 -= mysecond());
+    DEBUG1(t0 -= mysecond());
 
     float avgn=cbrt(*m)*cbrt(*n)*cbrt(*k);
 
@@ -30,8 +31,18 @@ void _SGEMM( const char* transa, const char* transb, const int* m, const int* n,
     if(avgn<scilib_matrix_offload_size)  {
         DEBUG2(fprintf(stderr,"cpu: sgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=%.1f, lda=%d, ldb=%d, beta=%.1f, ldc=%d\n",
            *transa, *transb, *m, *n, *k, *alpha, *lda, *ldb, *beta, *ldc));
+
          if (!orig_f) orig_f = farray[fi].fptr;
+         DEBUG1(t1 -= mysecond());
          orig_f(transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
+         double ts;
+         DEBUG1(ts = mysecond());
+         DEBUG1(t1 += ts);
+         DEBUG1(t0 += ts);
+
+         DEBUG1(farray[fi].t0 += t0);
+         DEBUG1(farray[fi].t1 += t1);
+
          return;
     }
     DEBUG2(fprintf(stderr,"gpu: sgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=%.1f, lda=%d, ldb=%d, beta=%.1f, ldc=%d\n",
@@ -60,10 +71,10 @@ if(scilib_offload_mode == 1){
     CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    DEBUG1(farray[fi].t1 -= mysecond());
+    DEBUG1(t1 -= mysecond());
     CUBLAS_CHECK(cublasSgemm(handle, transA, transB, *m, *n, *k, alpha, d_A, *lda, d_B, *ldb, beta, d_C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
-    DEBUG1(farray[fi].t1 += mysecond());
+    DEBUG1(t1 += mysecond());
     CUDA_CHECK(cudaMemcpy(C, d_C, sizeC, cudaMemcpyDeviceToHost));
 
     CUDA_CHECK(cudaFreeAsync(d_A, stream));
@@ -74,24 +85,32 @@ if(scilib_offload_mode == 1){
 //#else  //not GPUCPOY
 else {
 //#ifdef AUTO_NUMA
-    if(scilib_offload_mode == 3) {
-      int inumaA=which_numa(A, sizeA);
-      int inumaB=which_numa(B, sizeB);
-      int inumaC=which_numa(C, sizeC);
-      if ( inumaA == 0 ) move_numa(A, sizeA, NUMA_HBM);
-      if ( inumaB == 0 ) move_numa(B, sizeB, NUMA_HBM);
-      if ( inumaC == 0 ) move_numa(C, sizeC, NUMA_HBM);
+    int inumaA, inumaB, inumaC;
+    if (scilib_offload_mode == 3) {
+       inumaA=which_numa(A, sizeA);
+       inumaB=which_numa(B, sizeB);
+       inumaC=which_numa(C, sizeC);
+       DEBUG3(fprintf(stderr,"a,NUMA location of A,B,C: %d %d %d\n", inumaA, inumaB, inumaC));
+       if ( inumaA == 0 ) move_numa(A, sizeA, NUMA_HBM);
+       if ( inumaB == 0 ) move_numa(B, sizeB, NUMA_HBM);
+       if ( inumaC == 0 ) move_numa(C, sizeC, NUMA_HBM);
+       DEBUG3(fprintf(stderr,"b,NUMA location of A,B,C: %d %d %d\n", inumaA, inumaB, inumaC));
     }
 //#endif
 
-    DEBUG1(farray[fi].t1 -= mysecond());
+    DEBUG1(t1 -= mysecond());
     CUBLAS_CHECK(cublasSgemm(handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
-    DEBUG1(farray[fi].t1 += mysecond());
+    DEBUG1(t1 += mysecond());
 //#endif
 }
 
-    DEBUG1(farray[fi].t0 += mysecond());
+    DEBUG1(t0 += mysecond());
+
+    DEBUG3(fprintf(stderr, "single sgemm timing(s): total= %10.6f, compute= %10.6f, other= %10.6f\n", t0, t1, t0-t1));
+
+    DEBUG1(farray[fi].t0 += t0);
+    DEBUG1(farray[fi].t1 += t1);
 
     return;
 }
