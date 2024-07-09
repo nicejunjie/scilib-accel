@@ -31,7 +31,20 @@ Optionally use the following environmental variables to fine-tune: <br />
 
 ## Known issues: 
 Bugs from the UCX side were observed, UCX driver somehow interferes with memory pages and causes issue using NUMA 1 (the HBM). Before NVIDIA fixes the bug, UCX has to be turned off: <br /> 
-`mpirun --mca pml ^ucx --mca btl self,vader,tcp -n $rank -map-by node:PE=$nt  $exe`
+```bash
+export OMP_NUM_THREADS=$nt
+mpirun --mca pml ^ucx --mca btl self,vader,tcp -n $nrank -map-by node:PE=$nt $EXE
+```
+or 
+```bash
+export OMP_NUM_THREADS=$nt
+export OMPI_MCA_pml="^ucx"
+export OMPI_MCA_btl="self,vader,tcp"
+export OMPI_MCA_coll="^hcoll"
+export OMPI_MCA_btl_tcp_if_exclude="lo"
+
+mpirun -n $nrank -map-by node:PE=$nt $EXE
+```
 
 ## Reference: 
 [Automatic BLAS Offloading on Unified Memory Architecture: A Study on NVIDIA Grace-Hopper](https://arxiv.org/abs/2404.13195)
