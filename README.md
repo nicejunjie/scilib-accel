@@ -39,12 +39,14 @@ or
 ```bash
 export OMP_NUM_THREADS=$nt
 export OMPI_MCA_pml="^ucx"
-export OMPI_MCA_btl="self,vader,tcp"
+export OMPI_MCA_btl="self,vader"
 export OMPI_MCA_coll="^hcoll"
-export OMPI_MCA_btl_tcp_if_exclude="lo"
 
 mpirun -n $nrank -map-by node:PE=$nt $EXE
 ```
+<!-- export OMPI_MCA_btl_tcp_if_exclude="lo" -->
+<!-- export OMPI_MCA_btl="self,vader,tcp" -->
+
 
 ## Reference: 
 [Automatic BLAS Offloading on Unified Memory Architecture: A Study on NVIDIA Grace-Hopper](https://arxiv.org/abs/2404.13195)
