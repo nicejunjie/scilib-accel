@@ -25,9 +25,9 @@ Optionally use the following environmental variables to fine-tune: <br />
 - `SCILIB_MATRIX_OFFLOAD_SIZE=[size]` : size=(mnk)^(1/3), default is 500, the size above which GPU offload will occur.  <br />
 - `SCILIB_THPOFF=[0|1]` : 0 - default, use system default THP setting, 1 -- turn off THP.  <br />
 - `SCILIB_OFFLOAD_MODE=[1|2|3]`: different data movement strategies.  <br/>
-  - 1: perform cudaMemCpy to/from GPU for every cuBLAS call;  (available on any GPU)  
-  - 2: use unified memory access without explicit data movement;  (only available on Grace-Hopper)
-  - 3: (default) apply First GPU Use Policy, data is migrated to GPU HBM upon the first use of cuBLAS and stay resident on HBM. (Only available on Grace-Hopper)
+  - S1: perform cudaMemCpy to/from GPU for every cuBLAS call;  (available on any GPU)  
+  - S2: use unified memory access without explicit data movement;  (only available on Grace-Hopper)
+  - S3: (default) apply First GPU Use Policy, data is migrated to GPU HBM upon the first use of cuBLAS and stay resident on HBM. (Only available on Grace-Hopper)
 
 ## Known issues: 
 Bugs from the UCX side were observed, UCX driver somehow interferes with memory pages and causes issue using NUMA 1 (the HBM). Before NVIDIA fixes the bug, UCX has to be turned off: <br /> 
