@@ -48,5 +48,37 @@ mpirun -n $nrank -map-by node:PE=$nt $EXE
 <!-- export OMPI_MCA_btl="self,vader,tcp" -->
 
 
+## Latest test data:  
+**PARSEC ( MPI x OMP = 32x2) <br />**
+real-space Density Functional Theory code https://real-space.org 
+| Method | App Total Runtime | DGEMM Time | Data Movement | Notes |
+|--------|---------------------------|------------|---------------|-------|
+| CPU, single Grace | 776.5 | 608s | 0 | |
+| SCILIB-Accel S1: data copy | 425.7s | 12.4s | 220.7s | |
+| SCILIB-Accel S2: pin on HBM | 299.6s | 28.5s | 0 | |
+| SCILIB-Accel S2: -gpu=unified * | 246.8s | 56.6s | N/A | 64k page |
+| SCILIB-Accel S3: First Use Policy | 220.3s | 29.1s | 1.3s | Matrix reuse: 570 | 
+
+\* require both PARSEC and SCILIB-Accel to be recompiled with -gpu=unified, and only works well with 64k page due to CUDA bugs in 4k. 
+
+
+**MuST ( MPI x OMP = 28x2)** <br />
+Multiple Scattering Theory code for first principle calculations https://github.com/mstsuite/MuST
+| Method | App Total Runtime | ZGEMM Time | Data Movement | Notes |
+|--------|---------------------------|------------|---------------|-------|
+| CPU, single Grace | 130s | 84.5s | 0 | |
+| Native GPU (cuSolver) | 57.4s | N/A | N/A | |
+| SCILIB-Accel S1: data copy | 59.4s | 11.7s | 4.5s | |
+| SCILIB-Accel S3: First Use Policy | 58.0s | 14.3s | 0.5s | Matrix reuse: 39 | 
+
+
+**HPL (using binary from NVIDIA's HPC container)**
+| HPL Method | Rmax (TFlops) | t_dgemm (s) | t_data (s) | Notes |
+|------------|---------------|-------------|------------|-------|
+| CPU, single Grace | 2.8 | 188.8 | 0 | |
+| SCILIB-Accel S2: pin on HBM | 25.7 | 11.6 | 0 | |
+| SCILIB-Accel S3: First Use Policy | 11.3 | 14.2 | 9.2 | Matrix reuse: 6 |
+| Native GPU | 51.7 | - | - | |
+
 ## Reference: 
 [Automatic BLAS Offloading on Unified Memory Architecture: A Study on NVIDIA Grace-Hopper](https://arxiv.org/abs/2404.13195)
