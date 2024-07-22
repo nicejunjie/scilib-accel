@@ -1,7 +1,7 @@
-# scilib-accel
-Automatic GPU offload for scientific libraries. 
+# SCILIB-Accel
+Automatic GPU offload for scientific libraries (hopefully not just BLAS). 
 
-Only sgemm, dgemm, cgemm and zgemm are support at this point. 
+Only sgemm, dgemm, cgemm and zgemm are support at this point, *trmm and *trsm in progress. 
 
 Only NVIDIA GPU is supported but may support other GPU in the future. 
 
