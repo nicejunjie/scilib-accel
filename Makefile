@@ -22,8 +22,6 @@ LIBS = $(CUBLAS) $(CURT)
 TARGET1 = scilib-dbi.so
 TARGET2 = scilib-dl.so
 
-#CPPFLAGS = -DGPUCOPY
- CPPFLAGS = -DAUTO_NUMA 
 #MEMMODEL= -gpu=unified 
 #MEMMODEL= -gpu=nomanaged
 CPPFLAGS += -D$(GPUARCH)

@@ -154,9 +154,9 @@ void move_numa(void *ptr, size_t size, int target_node) {
     //for (int i =0; i<size; i++) printf("%d %d\n",i,which_numa(ptr+i,1));
 
     if ( rc > 0) 
-       DEBUG2(fprintf(stderr,"move_numa time %15.6f of %lu pages (%lu not moved)\n", tnuma, num_pages, rc));
+       DEBUG2(fprintf(stderr,"move_page time %15.6f of %lu pages (%lu not moved)\n", tnuma, num_pages, rc));
     else
-       DEBUG2(fprintf(stderr,"move_numa time %15.6f of %lu pages\n", tnuma, num_pages));
+       DEBUG2(fprintf(stderr,"move_page time %15.6f of %lu pages\n", tnuma, num_pages));
     return;
 }
 

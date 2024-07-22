@@ -6,9 +6,7 @@
 
 cublasStatus_t status;
 cublasHandle_t handle;
-//#ifdef GPUCOPY
-          cudaStream_t stream;
-//#endif
+cudaStream_t stream;
 
 
 void nvidia_init(){
@@ -20,11 +18,8 @@ void nvidia_init(){
         return;
     }
 
-//#ifdef GPUCOPY
 if(scilib_offload_mode == 1)
     cudaStreamCreate(&stream);
-//#endif 
-
     return;
 }
 
@@ -33,11 +28,8 @@ void nvidia_fini(){
 
 /*  CUBLAS  */
     cublasDestroy(handle);
-//#ifdef GPUCOPY
 if(scilib_offload_mode == 1)
     cudaStreamDestroy(stream);
-//#endif
-
     return;
 }
 
