@@ -1,41 +1,44 @@
 #include "myblas.h"
 
 #ifdef DBI
-#define _DGEMM mydgemm
+#define _ZSYMM myzsymm
 #else 
-#define _DGEMM dgemm_
+#define _ZSYMM zsymm_
 #endif 
-void _DGEMM( const char* transa, const char* transb, const int* m, const int* n, const int* k, 
-                 const double* alpha, const double* A, const int* lda, const double* B, const int* ldb, 
-                 const double* beta, double* C, const int* ldc) {
+void _ZSYMM(const char *side, const char *uplo, const int *m, const int *n, const double *alpha, const void* A,
+            const int *lda, const void* B, const int *ldb, const double *beta, void* C, const int *ldc) {
 
-    enum findex fi = dgemm; 
+    enum findex fi = zsymm; 
     static void (*orig_f)() = NULL; 
     double t0=0.0, t1=0.0;
 
     DEBUG1(t0 -= mysecond());
 
-    double avgn=cbrt(*m)*cbrt(*n)*cbrt(*k);
+    double avgn=cbrt(*m)*cbrt(*m)*cbrt(*n);
 
-    int size_type = sizeof(double);
-    size_t sizeA = (transa[0] == 'N'||transa[0] == 'n') ? ((*k) * (*lda)) : ((*m) * (*lda));
-    size_t sizeB = (transb[0] == 'N'||transb[0] == 'n') ? ((*n) * (*ldb)) : ((*k) * (*ldb));
+    int size_type = sizeof(cuDoubleComplex);
+    size_t sizeA = (*side == 'L' || *side == 'l') ? ((*m) * (*lda)) : ((*n) * (*lda));
+    size_t sizeB = (*n) * (*ldb);
     size_t sizeC = (*n) * (*ldc);
     sizeA *= size_type;
     sizeB *= size_type;
     sizeC *= size_type;
+
     double matrix_mem_size_mb = ((double)sizeA+(double)sizeB+(double)sizeC) / 1024.0 / 1024.0;
     double beta_abs = fabs( *beta);
-    int ic = (beta_abs > 1.0e-8) ? 2:1;
-    double matrix_mem_size_mb_copy = ((double)sizeA+(double)sizeB+(double)sizeC*ic) / 1024.0 / 1024.0;
+    //int ic = (beta_abs > 1.0e-8) ? 2:1;
+    //double matrix_mem_size_mb_copy = ((double)sizeA+(double)sizeB+(double)sizeC*ic) / 1024.0 / 1024.0;
 
     if(avgn<scilib_matrix_offload_size)  {
-         DEBUG2(fprintf(stderr,"cpu: dgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=%.1e, lda=%d, ldb=%d, beta=%.ef, ldc=%d\n",
-           *transa, *transb, *m, *n, *k, *alpha, *lda, *ldb, *beta, *ldc));
+         DEBUG2(fprintf(stderr,"cpu: zsymm args: side=%c, uplo=%c, m=%d, n=%d, alpha=(%.1e, %.1e), \
+           lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
+           *side, *uplo, *m, *n, crealf(*(double complex*)alpha), cimagf(*(double complex*)alpha),
+           *lda, *ldb,crealf(*(double complex*)beta),cimagf(*(double complex*)beta) , *ldc));
 
          if (!orig_f) orig_f = farray[fi].fptr;
          DEBUG1(t1 -= mysecond());
-         orig_f(transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
+         orig_f(side, uplo, m, n, alpha, A, lda, B, ldb, beta, C, ldc);
+
          double ts;
          DEBUG1(ts = mysecond());
          DEBUG1(t1 += ts);
@@ -46,14 +49,16 @@ void _DGEMM( const char* transa, const char* transb, const int* m, const int* n,
 
          return;
     }
-    DEBUG2(fprintf(stderr,"gpu: dgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=%.1e, lda=%d, ldb=%d, beta=%.1e, ldc=%d\n",
-        *transa, *transb, *m, *n, *k, *alpha, *lda, *ldb, *beta, *ldc));
+         DEBUG2(fprintf(stderr,"gpu: zsymm args: side=%c, uplo=%c, m=%d, n=%d, alpha=(%.1e, %.1e), \
+           lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
+           *side, *uplo, *m, *n, crealf(*(double complex*)alpha), cimagf(*(double complex*)alpha),
+           *lda, *ldb,crealf(*(double complex*)beta),cimagf(*(double complex*)beta) , *ldc));
 
-    cublasOperation_t transA = (transa[0] == 'N' || transa[0] == 'n') ? CUBLAS_OP_N : CUBLAS_OP_T;
-    cublasOperation_t transB = (transb[0] == 'N' || transb[0] == 'n') ? CUBLAS_OP_N : CUBLAS_OP_T;
+    cublasSideMode_t gpu_side = (side[0] == 'L' || side[0] == 'l') ? CUBLAS_SIDE_LEFT : CUBLAS_SIDE_RIGHT;
+    cublasFillMode_t gpu_uplo = (uplo[0] == 'U' || uplo[0] == 'u') ? CUBLAS_FILL_MODE_UPPER : CUBLAS_FILL_MODE_LOWER;
 
 if(scilib_offload_mode == 1){
-    double *d_A, *d_B, *d_C;
+    cuDoubleComplex *d_A, *d_B, *d_C;
 
     CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, stream));
     CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, stream));
@@ -67,7 +72,7 @@ if(scilib_offload_mode == 1){
     CUDA_CHECK(cudaDeviceSynchronize());
 
     DEBUG1(t1 -= mysecond());
-    CUBLAS_CHECK(cublasDgemm(handle, transA, transB, *m, *n, *k, alpha, d_A, *lda, d_B, *ldb, beta, d_C, *ldc));
+    CUBLAS_CHECK(cublasZsymm(handle, gpu_side, gpu_uplo, *m, *n, alpha, A, *lda, B, *ldb, beta, C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
     DEBUG1(t1 += mysecond());
     CUDA_CHECK(cudaMemcpy(C, d_C, sizeC, cudaMemcpyDeviceToHost));
@@ -91,15 +96,15 @@ else {
     }
 
     DEBUG1(t1 -= mysecond());
-    CUBLAS_CHECK(cublasDgemm(handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc));
+    CUBLAS_CHECK(cublasZsymm(handle, gpu_side, gpu_uplo, *m, *n, alpha, A, *lda, B, *ldb, beta, C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
-       DEBUG3(fprintf(stderr,"c,NUMA location of A,B,C: %d %d %d\n", inumaA, inumaB, inumaC));
+    DEBUG3(fprintf(stderr,"c,NUMA location of A,B,C: %d %d %d\n", inumaA, inumaB, inumaC));
     DEBUG1(t1 += mysecond());
 }
 
     DEBUG1(t0 += mysecond());
 
-    DEBUG3(fprintf(stderr, "single dgemm timing(s): total= %10.6f, compute= %10.6f, other= %10.6f\n", t0, t1, t0-t1));
+    DEBUG3(fprintf(stderr, "single zsymm timing(s): total= %10.6f, compute= %10.6f, other= %10.6f\n", t0, t1, t0-t1));
 
     DEBUG1(farray[fi].t0 += t0);
     DEBUG1(farray[fi].t1 += t1);

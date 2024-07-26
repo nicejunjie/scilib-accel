@@ -33,7 +33,9 @@ FFLAGS = -O2 -mp -g -mcmodel=large #$(MEMMODEL)
 
 #----------------------------
 
-COMMON_SRCS = init.c nvidia.c utils.c blas/$(GPUARCH)/sgemm.c blas/$(GPUARCH)/dgemm.c blas/$(GPUARCH)/cgemm.c blas/$(GPUARCH)/zgemm.c 
+BLAS_SRCS = $(wildcard blas/$(GPUARCH)/*.c)
+COMMON_SRCS = init.c nvidia.c utils.c $(BLAS_SRCS)
+#COMMON_SRCS = init.c nvidia.c utils.c blas/$(GPUARCH)/sgemm.c blas/$(GPUARCH)/dgemm.c blas/$(GPUARCH)/cgemm.c blas/$(GPUARCH)/zgemm.c 
 
 SRCS1 = main-dbi.c
 SRCS1ALL = $(COMMON_SRCS) $(SRCS1)

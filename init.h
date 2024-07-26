@@ -14,6 +14,10 @@ enum findex{
   dgemm,
   cgemm,
   zgemm,
+  ssymm,
+  dsymm,
+  csymm,
+  zsymm,
 };
 
 #define X(f0_val, f1_val) { f0_val, f1_val, NULL, 0.0, 0.0 }
@@ -22,5 +26,9 @@ enum findex{
     X("dgemm_", "mydgemm"), \
     X("cgemm_", "mycgemm"), \
     X("zgemm_", "myzgemm"), \
+    X("ssymm_", "myssymm"), \
+    X("dsymm_", "mydsymm"), \
+    X("csymm_", "mycsymm"), \
+    X("zsymm_", "myzsymm"), \
     // Add more elements as needed
 

@@ -27,12 +27,9 @@ void elf_init(){
 
   init();
 
-/*
-#ifdef AUTO_NUMA
-  if (getpagesize() == 65536)  // 64K page, turn off THP 
+  if (scilib_thpoff == 1) 
       prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0);
-#endif
-*/
+
 
 #ifdef NVIDIA
   nvidia_init();

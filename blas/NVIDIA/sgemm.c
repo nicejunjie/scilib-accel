@@ -51,15 +51,9 @@ void _SGEMM( const char* transa, const char* transb, const int* m, const int* n,
     cublasOperation_t transA = (transa[0] == 'N' || transa[0] == 'n') ? CUBLAS_OP_N : CUBLAS_OP_T;
     cublasOperation_t transB = (transb[0] == 'N' || transb[0] == 'n') ? CUBLAS_OP_N : CUBLAS_OP_T;
 
-//#ifdef GPUCOPY
 if(scilib_offload_mode == 1){
-/*
-        CUDA_CHECK(cudaHostRegister((void*)A, sizeA, cudaHostRegisterDefault));
-        CUDA_CHECK(cudaHostRegister((void*)B, sizeB, cudaHostRegisterDefault));
-        CUDA_CHECK(cudaHostRegister((void*)C, sizeC, cudaHostRegisterDefault));
-*/
-
     float *d_A, *d_B, *d_C;
+
     CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, stream));
     CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, stream));
     CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC, stream));
@@ -82,9 +76,7 @@ if(scilib_offload_mode == 1){
     CUDA_CHECK(cudaFreeAsync(d_C, stream));
 
 }
-//#else  //not GPUCPOY
 else {
-//#ifdef AUTO_NUMA
     int inumaA, inumaB, inumaC;
     if (scilib_offload_mode == 3) {
        inumaA=which_numa(A, sizeA);
@@ -96,13 +88,12 @@ else {
        if ( inumaC == 0 ) move_numa(C, sizeC, NUMA_HBM);
        DEBUG3(fprintf(stderr,"b,NUMA location of A,B,C: %d %d %d\n", inumaA, inumaB, inumaC));
     }
-//#endif
 
     DEBUG1(t1 -= mysecond());
     CUBLAS_CHECK(cublasSgemm(handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
+       DEBUG3(fprintf(stderr,"c,NUMA location of A,B,C: %d %d %d\n", inumaA, inumaB, inumaC));
     DEBUG1(t1 += mysecond());
-//#endif
 }
 
     DEBUG1(t0 += mysecond());
