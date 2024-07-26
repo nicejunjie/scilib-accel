@@ -1,7 +1,7 @@
 # SCILIB-Accel
 Automatic GPU offload for scientific libraries (hopefully not just BLAS). 
 
-Only sgemm, dgemm, cgemm and zgemm are support at this point, *trmm and *trsm in progress. 
+Only *gemm, *symm are supported at this point, other level-3 BLAS in progress. 
 
 Only NVIDIA GPU is supported but may support other GPU in the future. 
 
@@ -27,7 +27,10 @@ Optionally use the following environmental variables to fine-tune: <br />
 - `SCILIB_OFFLOAD_MODE=[1|2|3]`: different data movement strategies.  <br/>
   - S1: perform cudaMemCpy to/from GPU for every cuBLAS call;  (available on any GPU)  
   - S2: use unified memory access without explicit data movement;  (only available on Grace-Hopper)
-  - S3: (default) apply First GPU Use Policy, data is migrated to GPU HBM upon the first use of cuBLAS and stay resident on HBM. (Only available on Grace-Hopper)
+  - S3: (default) apply GPU First Use policy, data is migrated to GPU HBM upon the first use of cuBLAS and stay resident on HBM. 
+        This policy is very similiar to OpenMP First Touch, with the assumption that the CPU access of the migrated matrices on HBM
+         are relatively trivial comparing to amount of GPU local access. 
+        (Only available on Grace-Hopper)
 
 ## Known issues: 
 Bugs from the UCX side were observed, UCX driver somehow interferes with memory pages and causes issue using NUMA 1 (the HBM). Before NVIDIA fixes the bug, UCX has to be turned off: <br /> 
