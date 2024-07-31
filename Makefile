@@ -119,4 +119,8 @@ run2: test_dgemm.x $(TARGET2)
 
 .PHONY: clean
 clean:
+	rm -rf $(OBJ1) $(OBJ2) $(FRIDA_DIR)
+
+.PHONY: veryclean
+veryclean:
 	rm -rf test_dgemm.x $(TARGET1) $(TARGET2) $(OBJ1) $(OBJ2) $(FRIDA_DIR)

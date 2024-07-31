@@ -44,6 +44,8 @@ void _ZSYMM(const char *side, const char *uplo, const int *m, const int *n, cons
          DEBUG1(t1 += ts);
          DEBUG1(t0 += ts);
 
+         DEBUG3(fprintf(stderr, "cpu: single zsymm timing(s): total= %10.6f\n", t0 ));
+
          DEBUG1(farray[fi].t0 += t0);
          DEBUG1(farray[fi].t1 += t1);
 
@@ -104,7 +106,7 @@ else {
 
     DEBUG1(t0 += mysecond());
 
-    DEBUG3(fprintf(stderr, "single zsymm timing(s): total= %10.6f, compute= %10.6f, other= %10.6f\n", t0, t1, t0-t1));
+    DEBUG3(fprintf(stderr, "gpu: single zsymm timing(s): total= %10.6f, compute= %10.6f, other= %10.6f\n", t0, t1, t0-t1));
 
     DEBUG1(farray[fi].t0 += t0);
     DEBUG1(farray[fi].t1 += t1);

@@ -1,7 +1,7 @@
 # SCILIB-Accel
 Automatic GPU offload for scientific libraries (hopefully not just BLAS). 
 
-Only *gemm, *symm are supported at this point, other level-3 BLAS in progress. 
+Only *gemm, *symm, *trmm are supported at this point, other level-3 BLAS in progress. 
 
 Only NVIDIA GPU is supported but may support other GPU in the future. 
 

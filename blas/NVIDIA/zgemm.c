@@ -50,6 +50,8 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
          DEBUG1(t1 += ts);
          DEBUG1(t0 += ts);
 
+         DEBUG3(fprintf(stderr, "cpu: single zgemm timing(s): total= %10.6f\n", t0 ));
+
          DEBUG1(farray[fi].t0 += t0);
          DEBUG1(farray[fi].t1 += t1);
 
@@ -132,7 +134,7 @@ else {
 
     DEBUG1(t0 += mysecond());
 
-    DEBUG3(fprintf(stderr, "single zgemm timing(s): total= %10.6f, compute= %10.6f, other= %10.6f\n", t0, t1, t0-t1));
+    DEBUG3(fprintf(stderr, "gpu: single zgemm timing(s): total= %10.6f, compute= %10.6f, other= %10.6f\n", t0, t1, t0-t1));
 
     DEBUG1(farray[fi].t0 += t0);
     DEBUG1(farray[fi].t1 += t1);
