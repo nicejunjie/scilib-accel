@@ -33,4 +33,5 @@ int get_MPI_local_rank();
 void get_exe_path(char **path);
 void get_argv0(char **argv0);
 
-
+char** str_split(char* a_str, const char a_delim);
+int in_str(const char* s1, char** s2);

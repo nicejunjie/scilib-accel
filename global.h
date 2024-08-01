@@ -5,6 +5,8 @@ extern int scilib_matrix_offload_size ;   //SCILIB_MATRIX_OFFLOAD_SIZE
 extern int scilib_debug;                  //SCILIB_DEBUG
 extern int scilib_thpoff;                 //SCILIB_THPOFF
 extern int scilib_offload_mode;           //SCILIB_OFFLOAD_MODE
+extern char **scilib_offload_func;        //SCILIB_OFFLOAD_FUNC
+
 
 extern int skip_flag;
 

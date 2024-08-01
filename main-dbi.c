@@ -52,15 +52,19 @@ void elf_init(){
   
   gum_interceptor_begin_transaction (interceptor);
   for( int i=0; i< fsize; i++) {
-     hook_address[i] = gum_find_function(farray[i].f0);
-     gpointer newf = gum_find_function(farray[i].f1);
-     if (hook_address[i] && newf) {
-   //    g_print ("%s address = %p\n", farray[i].f0, hook_address[i]);
-   //    g_print ("%s address = %p\n", farray[i].f1, newf);
-         gum_interceptor_replace_fast(interceptor, hook_address[i], newf, 
-               (gpointer*)(&(farray[i].fptr)));
-//       g_print ("ori ptr address %p\n",(farray[i].fptr));
+     if( !scilib_offload_func || in_str(farray[i].f0, scilib_offload_func)) {
+         hook_address[i] = gum_find_function(farray[i].f0);
+         gpointer newf = gum_find_function(farray[i].f1);
+         if (hook_address[i] && newf) {
+   //        g_print ("%s address = %p\n", farray[i].f0, hook_address[i]);
+   //        g_print ("%s address = %p\n", farray[i].f1, newf);
+             gum_interceptor_replace_fast(interceptor, hook_address[i], newf, 
+                   (gpointer*)(&(farray[i].fptr)));
+//           g_print ("ori ptr address %p\n",(farray[i].fptr));
+        }
      }
+     else 
+        hook_address[i] = NULL;
   }
   gum_interceptor_end_transaction (interceptor);
 
