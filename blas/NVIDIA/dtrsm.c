@@ -1,16 +1,16 @@
 #include "myblas.h"
 
 #ifdef DBI
-#define _CTRMM myctrmm
+#define _DTRSM mydtrsm
 #else 
-#define _CTRMM ctrmm_
+#define _DTRSM dtrsm_
 #endif 
 
-void _CTRMM(const char *side, const char *uplo, const char *transa, const char *diag,
-            const int *m, const int *n, const void *alpha, const void *A,
-            const int *lda, void *B, const int *ldb) {
+void _DTRSM(const char *side, const char *uplo, const char *transa, const char *diag,
+            const int *m, const int *n, const double *alpha, const double *A,
+            const int *lda, double *B, const int *ldb) {
 
-    enum findex fi = ctrmm; 
+    enum findex fi = dtrsm; 
     static void (*orig_f)() = NULL; 
     double t0=0.0, t1=0.0;
 
@@ -20,7 +20,7 @@ void _CTRMM(const char *side, const char *uplo, const char *transa, const char *
 
     double avgn = cbrt((double)*m * (double)*n * (double)*k);
 
-    int size_type = sizeof(cuFloatComplex); //for complex
+    int size_type = sizeof(double);
     size_t sizeA = (*k) * (*lda);
     size_t sizeB = (*n) * (*ldb);
     sizeA *= size_type;
@@ -29,8 +29,8 @@ void _CTRMM(const char *side, const char *uplo, const char *transa, const char *
     double matrix_mem_size_mb = ((double)sizeA+(double)sizeB) / 1024.0 / 1024.0;
 
     if(avgn<scilib_matrix_offload_size)  {
-         DEBUG2(fprintf(stderr,"cpu: ctrmm args: side=%c, uplo=%c, transa=%c, diag=%c, m=%d, n=%d, alpha=(%.1e, %.1e), lda=%d, ldb=%d\n",
-           *side, *uplo, *transa, *diag, *m, *n, crealf(*(float complex*)alpha), cimagf(*(float complex*)alpha), *lda, *ldb));
+         DEBUG2(fprintf(stderr,"cpu: dtrsm args: side=%c, uplo=%c, transa=%c, diag=%c, m=%d, n=%d, alpha=%.1e, lda=%d, ldb=%d\n",
+           *side, *uplo, *transa, *diag, *m, *n, *alpha, *alpha, *lda, *ldb));
 
          if (!orig_f) orig_f = farray[fi].fptr;
          DEBUG1(t1 -= mysecond());
@@ -41,15 +41,15 @@ void _CTRMM(const char *side, const char *uplo, const char *transa, const char *
          DEBUG1(t1 += ts);
          DEBUG1(t0 += ts);
 
-         DEBUG3(fprintf(stderr, "cpu: single ctrmm timing(s): total= %10.6f\n", t0 ));
+         DEBUG3(fprintf(stderr, "cpu: single dtrsm timing(s): total= %10.6f\n", t0 ));
 
          DEBUG1(farray[fi].t0 += t0);
          DEBUG1(farray[fi].t1 += t1);
 
          return;
     }
-    DEBUG2(fprintf(stderr,"gpu: ctrmm args: side=%c, uplo=%c, transa=%c, diag=%c, m=%d, n=%d, alpha=(%.1e, %.1e), lda=%d, ldb=%d\n",
-        *side, *uplo, *transa, *diag, *m, *n, crealf(*(float complex*)alpha), cimagf(*(float complex*)alpha), *lda, *ldb));
+         DEBUG2(fprintf(stderr,"gpu: dtrsm args: side=%c, uplo=%c, transa=%c, diag=%c, m=%d, n=%d, alpha=%.1e, lda=%d, ldb=%d\n",
+           *side, *uplo, *transa, *diag, *m, *n, *alpha, *alpha, *lda, *ldb));
 
     cublasSideMode_t gpu_side = (side[0] == 'L' || side[0] == 'l') ? CUBLAS_SIDE_LEFT : CUBLAS_SIDE_RIGHT;
     cublasFillMode_t gpu_uplo = (uplo[0] == 'U' || uplo[0] == 'u') ? CUBLAS_FILL_MODE_UPPER : CUBLAS_FILL_MODE_LOWER;
@@ -58,7 +58,7 @@ void _CTRMM(const char *side, const char *uplo, const char *transa, const char *
     cublasDiagType_t gpu_diag = (diag[0] == 'N' || diag[0] == 'n') ? CUBLAS_DIAG_NON_UNIT : CUBLAS_DIAG_UNIT;
 
 if(scilib_offload_mode == 1){
-    cuFloatComplex *d_A, *d_B;
+    double *d_A, *d_B;
 
     CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, stream));
     CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, stream));
@@ -69,7 +69,7 @@ if(scilib_offload_mode == 1){
     CUDA_CHECK(cudaDeviceSynchronize());
 
     DEBUG1(t1 -= mysecond());
-    CUBLAS_CHECK(cublasCtrmm(handle, gpu_side, gpu_uplo, gpu_transa, gpu_diag, *m, *n, alpha, d_A, *lda, d_B, *ldb, d_B, *ldb));
+    CUBLAS_CHECK(cublasDtrsm(handle, gpu_side, gpu_uplo, gpu_transa, gpu_diag, *m, *n, alpha, d_A, *lda, d_B, *ldb));
     CUDA_CHECK(cudaDeviceSynchronize());
     DEBUG1(t1 += mysecond());
     CUDA_CHECK(cudaMemcpy(B, d_B, sizeB, cudaMemcpyDeviceToHost));
@@ -90,7 +90,7 @@ else {
     }
 
     DEBUG1(t1 -= mysecond());
-    CUBLAS_CHECK(cublasCtrmm(handle, gpu_side, gpu_uplo, gpu_transa, gpu_diag, *m, *n, alpha, A, *lda, B, *ldb, B, *ldb));
+    CUBLAS_CHECK(cublasDtrsm(handle, gpu_side, gpu_uplo, gpu_transa, gpu_diag, *m, *n, alpha, A, *lda, B, *ldb));
     CUDA_CHECK(cudaDeviceSynchronize());
     DEBUG3(fprintf(stderr,"c,NUMA location of A,B: %d %d\n", inumaA, inumaB));
     DEBUG1(t1 += mysecond());
@@ -98,7 +98,7 @@ else {
 
     DEBUG1(t0 += mysecond());
 
-    DEBUG3(fprintf(stderr, "gpu: single ctrmm timing(s): total= %10.6f, compute= %10.6f, other= %10.6f\n", t0, t1, t0-t1));
+    DEBUG3(fprintf(stderr, "gpu: single dtrsm timing(s): total= %10.6f, compute= %10.6f, other= %10.6f\n", t0, t1, t0-t1));
 
     DEBUG1(farray[fi].t0 += t0);
     DEBUG1(farray[fi].t1 += t1);

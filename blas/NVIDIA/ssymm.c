@@ -14,10 +14,12 @@ void _SSYMM(const char *side, const char *uplo, const int *m, const int *n, cons
 
     DEBUG1(t0 -= mysecond());
 
-    double avgn=cbrt(*m)*cbrt(*m)*cbrt(*n);
+    const int *k = (side[0] == 'L' || side[0] == 'l') ? m : n;
+
+    double avgn = cbrt((double)*m * (double)*n * (double)*k);
 
     int size_type = sizeof(float);
-    size_t sizeA = (*side == 'L' || *side == 'l') ? ((*m) * (*lda)) : ((*n) * (*lda));
+    size_t sizeA = (*k) * (*lda);
     size_t sizeB = (*n) * (*ldb);
     size_t sizeC = (*n) * (*ldc);
     sizeA *= size_type;

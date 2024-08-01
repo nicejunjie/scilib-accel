@@ -38,8 +38,8 @@ void _CGEMM( const char* transa, const char* transb, const int* m, const int* n,
     if(avgn<scilib_matrix_offload_size)  {
     DEBUG2(fprintf(stderr, "cpu: cgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=(%.1e, %.1e), \  
        lda=%d, ldb=%d, beta=(%.1e, %.1e),ldc=%d\n",
-       *transa, *transb, *m, *n, *k, creal(*(float complex*)alpha), cimag(*(float complex*)alpha), 
-       *lda, *ldb, creal(*(float complex*)beta), cimag(*(float complex*)beta), *ldc));
+       *transa, *transb, *m, *n, *k, crealf(*(float complex*)alpha), cimagf(*(float complex*)alpha), 
+       *lda, *ldb, crealf(*(float complex*)beta), cimagf(*(float complex*)beta), *ldc));
 
          if (!orig_f) orig_f = farray[fi].fptr;
          DEBUG1(t1 -= mysecond());
@@ -59,8 +59,8 @@ void _CGEMM( const char* transa, const char* transb, const int* m, const int* n,
 
     DEBUG2(fprintf(stderr, "gpu: cgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=(%.1e, %.1e), \  
        lda=%d, ldb=%d, beta=(%.1e, %.1e),ldc=%d\n",
-       *transa, *transb, *m, *n, *k, creal(*(float complex*)alpha), cimag(*(float complex*)alpha), 
-       *lda, *ldb, creal(*(float complex*)beta), cimag(*(float complex*)beta), *ldc));
+       *transa, *transb, *m, *n, *k, crealf(*(float complex*)alpha), cimagf(*(float complex*)alpha), 
+       *lda, *ldb, crealf(*(float complex*)beta), cimagf(*(float complex*)beta), *ldc));
 /*
    // alpla and beta are complex
    printf("gpu: cgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=%.1f, lda=%d, ldb=%d, beta=%.1f, ldc=%d\n",

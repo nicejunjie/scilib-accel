@@ -16,10 +16,12 @@ void _DTRMM(const char *side, const char *uplo, const char *transa, const char *
 
     DEBUG1(t0 -= mysecond());
 
-    double avgn=cbrt(*m)*cbrt(*m)*cbrt(*n);
+    const int *k = (side[0] == 'L' || side[0] == 'l') ? m : n;
+
+    double avgn = cbrt((double)*m * (double)*n * (double)*k);
 
     int size_type = sizeof(double);
-    size_t sizeA = (*side == 'L' || *side == 'l') ? ((*m) * (*lda)) : ((*n) * (*lda));
+    size_t sizeA = (*k) * (*lda);
     size_t sizeB = (*n) * (*ldb);
     sizeA *= size_type;
     sizeB *= size_type;
