@@ -1,7 +1,7 @@
 # SCILIB-Accel
 Automatic GPU offload for scientific libraries (hopefully not just BLAS). 
 
-Only *gemm, *symm, *trmm are supported at this point, other level-3 BLAS in progress. 
+Only *gemm, *symm, *trmm, *trsm are supported at this point, other level-3 BLAS (*syrk, *sy2k, *sykx, *hemm, *herk, *her2k, *herkx) are in progress. 
 
 Only NVIDIA GPU is supported but may support other GPU in the future. 
 
@@ -60,19 +60,19 @@ real-space Density Functional Theory code https://real-space.org
 | SCILIB-Accel S1: data copy | 425.7s | 12.4s | 220.7s | |
 | SCILIB-Accel S2: pin on HBM | 299.6s | 28.5s | 0 | |
 | SCILIB-Accel S2: -gpu=unified * | 246.8s | 56.6s | N/A | 64k page |
-| SCILIB-Accel S3: First Use Policy | 220.3s | 29.1s | 1.3s | Matrix reuse: 570 | 
+| SCILIB-Accel S3: GPU First Use | 220.3s | 29.1s | 1.3s | Matrix reuse: 570 | 
 
 \* require both PARSEC and SCILIB-Accel to be recompiled with -gpu=unified, and only works well with 64k page due to CUDA bugs in 4k. 
 
 
 **MuST ( MPI x OMP = 28x2)** <br />
 Multiple Scattering Theory code for first principle calculations https://github.com/mstsuite/MuST
-| Method | App Total Runtime | ZGEMM Time | Data Movement | Notes |
+| Method | App Total Runtime | ZGEMM+ZTRSM Time  | Data Movement | Notes |
 |--------|---------------------------|------------|---------------|-------|
-| CPU, single Grace | 130s | 84.5s | 0 | |
+| CPU, single Grace | 124s | 82.5s + 35.2s | 0 | |
 | Native GPU (cuSolver) | 57.4s | N/A | N/A | |
-| SCILIB-Accel S1: data copy | 59.4s | 11.7s | 4.5s | |
-| SCILIB-Accel S3: First Use Policy | 58.0s | 14.3s | 0.5s | Matrix reuse: 39 | 
+| SCILIB-Accel S1: data copy | 31.5s | 11.7s + 1.4s | 13.6s | |
+| SCILIB-Accel S3: GPU First Use | 30.7 | 15.9s + 3.8 | 3.6s | Matrix reuse: 44 | 
 
 
 **HPL (using binary from NVIDIA's HPC container)**
@@ -80,7 +80,7 @@ Multiple Scattering Theory code for first principle calculations https://github.
 |------------|---------------|-------------|------------|-------|
 | CPU, single Grace | 2.8 | 188.8 | 0 | |
 | SCILIB-Accel S2: pin on HBM | 25.7 | 11.6 | 0 | |
-| SCILIB-Accel S3: First Use Policy | 11.3 | 14.2 | 9.2 | Matrix reuse: 6 |
+| SCILIB-Accel S3: GPU First Use | 11.3 | 14.2 | 9.2 | Matrix reuse: 6 |
 | Native GPU | 51.7 | - | - | |
 
 ## Reference: 
