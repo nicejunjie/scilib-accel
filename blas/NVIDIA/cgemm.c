@@ -71,7 +71,7 @@ void _CGEMM( const char* transa, const char* transb, const int* m, const int* n,
         transA = CUBLAS_OP_N;
     else if (transa[0] == 'T' || transa[0] == 't')  
         transA = CUBLAS_OP_T;
-    else if (transa[0] == 'H' || transa[0] == 'h') 
+    else if (transa[0] == 'C' || transa[0] == 'c') 
         transA = CUBLAS_OP_C;
     else {
         printf("Invalid transA value: %c\n", transa[0]);
