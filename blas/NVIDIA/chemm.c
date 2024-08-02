@@ -5,8 +5,8 @@
 #else 
 #define _CHEMM chemm_
 #endif 
-void _CHEMM(const char *side, const char *uplo, const int *m, const int *n, const float *alpha, const void* A,
-            const int *lda, const void* B, const int *ldb, const float *beta, void* C, const int *ldc) {
+void _CHEMM(const char *side, const char *uplo, const int *m, const int *n, const void *alpha, const void* A,
+            const int *lda, const void* B, const int *ldb, const void *beta, void* C, const int *ldc) {
 
     enum findex fi = chemm; 
     static void (*orig_f)() = NULL; 

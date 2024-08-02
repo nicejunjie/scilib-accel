@@ -1,8 +1,10 @@
 # SCILIB-Accel
 Automatic GPU offload for scientific libraries (hopefully not just BLAS).  Designed for NVidia Grace-Hopper. 
 
-Subroutines *gemm, *symm, *trmm, *trsm, *syrk, *hemm, *herk are supported at this point, 
-other level-3 BLAS (*sy2k, *sykx, *her2k, *herkx) are in progress. 
+All level-3 BLAS subroutines are supported now! 
+*gemm, *symm, *trmm, *trsm, *syrk, *syr2k, *hemm, *herk, *her2k.
+
+fftw support in progress.
 
 Only NVIDIA GPU is supported but may support other GPU in the future. 
 

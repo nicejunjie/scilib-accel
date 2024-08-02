@@ -51,7 +51,15 @@ void _DSYRK(const char *uplo, const char *trans, const int *n, const int *k, con
         *uplo, *trans, *n, *k, *alpha, *lda, *beta, *ldc));
 
     cublasFillMode_t gpu_uplo = (uplo[0] == 'U' || uplo[0] == 'u') ? CUBLAS_FILL_MODE_UPPER : CUBLAS_FILL_MODE_LOWER;
-    cublasOperation_t gpu_trans = (trans[0] == 'N' || trans[0] == 'n') ? CUBLAS_OP_N : CUBLAS_OP_T;
+    cublasOperation_t gpu_trans;
+    if (trans[0] == 'N' || trans[0] == 'n') {
+        gpu_trans = CUBLAS_OP_N;
+    } else if (trans[0] == 'T' || trans[0] == 't') {
+        gpu_trans = CUBLAS_OP_T;
+    } else {
+        gpu_trans = CUBLAS_OP_C;
+    }
+
 
     if(scilib_offload_mode == 1) {
         double *d_A, *d_C;

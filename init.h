@@ -22,8 +22,10 @@ enum findex{
   dsyrk,
   csyrk,
   zsyrk,
-//sy2k
-//sykx
+  ssyr2k,
+  dsyr2k,
+  csyr2k,
+  zsyr2k,
   strmm,
   dtrmm,
   ctrmm,
@@ -36,8 +38,8 @@ enum findex{
   zhemm,
   cherk,
   zherk,
-//her2k
-//herkx
+  cher2k,
+  zher2k,
 };
 
 #define X(f0_val, f1_val) { f0_val, f1_val, NULL, 0.0, 0.0 }
@@ -54,6 +56,10 @@ enum findex{
     X("dsyrk_", "mydsyrk"), \
     X("csyrk_", "mycsyrk"), \
     X("zsyrk_", "myzsyrk"), \
+    X("ssyr2k_", "myssyr2k"), \
+    X("dsyr2k_", "mydsyr2k"), \
+    X("csyr2k_", "mycsyr2k"), \
+    X("zsyr2k_", "myzsyr2k"), \
     X("strmm_", "mystrmm"), \
     X("dtrmm_", "mydtrmm"), \
     X("ctrmm_", "myctrmm"), \
@@ -66,5 +72,7 @@ enum findex{
     X("zhemm_", "myzhemm"), \
     X("cherk_", "mycherk"), \
     X("zherk_", "myzherk"), \
+    X("cher2k_", "mycher2k"), \
+    X("zher2k_", "myzher2k"), \
     // Add more elements as needed
 
