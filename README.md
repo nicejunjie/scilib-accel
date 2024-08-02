@@ -87,4 +87,5 @@ Multiple Scattering Theory code for first principle calculations https://github.
 | Native GPU | 51.7 | - | - | |
 
 ## Reference: 
+This paper summarizes the early developments. The current performance is much better than it was outlined in the paper. 
 [Automatic BLAS Offloading on Unified Memory Architecture: A Study on NVIDIA Grace-Hopper](https://arxiv.org/abs/2404.13195)
