@@ -1,7 +1,7 @@
 # SCILIB-Accel
 Automatic GPU offload for scientific libraries (hopefully not just BLAS).  Designed for NVidia Grace-Hopper. 
 
-All level-3 BLAS subroutines are supported now! 
+All level-3 BLAS subroutines are supported now! <br />
 *gemm, *symm, *trmm, *trsm, *syrk, *syr2k, *hemm, *herk, *her2k.
 
 fftw support in progress.
@@ -87,5 +87,5 @@ Multiple Scattering Theory code for first principle calculations https://github.
 | Native GPU | 51.7 | - | - | |
 
 ## Reference: 
-This paper summarizes the early developments. The current performance is much better than it was outlined in the paper. 
+This paper summarizes the early developments. The current performance is much better than it was outlined in the paper. <br />
 [Automatic BLAS Offloading on Unified Memory Architecture: A Study on NVIDIA Grace-Hopper](https://arxiv.org/abs/2404.13195)
