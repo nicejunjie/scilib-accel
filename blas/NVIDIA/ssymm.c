@@ -27,7 +27,7 @@ void _SSYMM(const char *side, const char *uplo, const int *m, const int *n, cons
     sizeC *= size_type;
 
     double matrix_mem_size_mb = ((double)sizeA+(double)sizeB+(double)sizeC) / 1024.0 / 1024.0;
-    float beta_abs = fabs( *beta);
+    float beta_abs = fabsf( *beta);
     //int ic = (beta_abs > 1.0e-8) ? 2:1;
     //double matrix_mem_size_mb_copy = ((double)sizeA+(double)sizeB+(double)sizeC*ic) / 1024.0 / 1024.0;
 

@@ -32,7 +32,7 @@ void _CGEMM( const char* transa, const char* transb, const int* m, const int* n,
     sizeC *= size_type;
     double cgemm_mem_size_mb = ((double)sizeA+(double)sizeB+(double)sizeC) / 1024.0 / 1024.0;
     cuFloatComplex *beta2=(cuFloatComplex *)beta;
-    double beta_abs = cuCabsf( *beta2);
+    float beta_abs = cuCabsf( *beta2);
     int ic = (beta_abs > 0.00000001) ? 2:1; 
 
     if(avgn<scilib_matrix_offload_size)  {

@@ -27,15 +27,15 @@ void _ZHEMM(const char *side, const char *uplo, const int *m, const int *n, cons
     sizeC *= size_type;
 
     double matrix_mem_size_mb = ((double)sizeA+(double)sizeB+(double)sizeC) / 1024.0 / 1024.0;
-    double beta_abs = fabs( *beta);
+    double beta_abs = cuCabs(*((cuDoubleComplex*) beta));
     //int ic = (beta_abs > 1.0e-8) ? 2:1;
     //double matrix_mem_size_mb_copy = ((double)sizeA+(double)sizeB+(double)sizeC*ic) / 1024.0 / 1024.0;
 
     if(avgn<scilib_matrix_offload_size)  {
          DEBUG2(fprintf(stderr,"cpu: zhemm args: side=%c, uplo=%c, m=%d, n=%d, alpha=(%.1e, %.1e), \
            lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
-           *side, *uplo, *m, *n, crealf(*(double complex*)alpha), cimagf(*(double complex*)alpha),
-           *lda, *ldb,crealf(*(double complex*)beta),cimagf(*(double complex*)beta) , *ldc));
+           *side, *uplo, *m, *n, creal(*(double complex*)alpha), cimag(*(double complex*)alpha),
+           *lda, *ldb,creal(*(double complex*)beta),cimag(*(double complex*)beta) , *ldc));
 
          if (!orig_f) orig_f = farray[fi].fptr;
          DEBUG1(t1 -= mysecond());
@@ -55,8 +55,8 @@ void _ZHEMM(const char *side, const char *uplo, const int *m, const int *n, cons
     }
          DEBUG2(fprintf(stderr,"gpu: zhemm args: side=%c, uplo=%c, m=%d, n=%d, alpha=(%.1e, %.1e), \
            lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
-           *side, *uplo, *m, *n, crealf(*(double complex*)alpha), cimagf(*(double complex*)alpha),
-           *lda, *ldb,crealf(*(double complex*)beta),cimagf(*(double complex*)beta) , *ldc));
+           *side, *uplo, *m, *n, creal(*(double complex*)alpha), cimag(*(double complex*)alpha),
+           *lda, *ldb,creal(*(double complex*)beta),cimag(*(double complex*)beta) , *ldc));
 
     cublasSideMode_t gpu_side = (side[0] == 'L' || side[0] == 'l') ? CUBLAS_SIDE_LEFT : CUBLAS_SIDE_RIGHT;
     cublasFillMode_t gpu_uplo = (uplo[0] == 'U' || uplo[0] == 'u') ? CUBLAS_FILL_MODE_UPPER : CUBLAS_FILL_MODE_LOWER;

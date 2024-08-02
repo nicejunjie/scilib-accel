@@ -25,7 +25,7 @@ void _SGEMM( const char* transa, const char* transb, const int* m, const int* n,
     sizeB *= size_type;
     sizeC *= size_type;
     float sgemm_mem_size_mb = ((float)sizeA+(float)sizeB+(float)sizeC) / 1024.0 / 1024.0;
-    float beta_abs = fabs( *beta);
+    float beta_abs = fabsf(*beta);
     int ic = (beta_abs > 1.0e-8) ? 2:1;
 
     if(avgn<scilib_matrix_offload_size)  {
