@@ -32,8 +32,7 @@ void _CSYMM(const char *side, const char *uplo, const int *m, const int *n, cons
     //double matrix_mem_size_mb_copy = ((double)sizeA+(double)sizeB+(double)sizeC*ic) / 1024.0 / 1024.0;
 
     if(avgn<scilib_matrix_offload_size)  {
-         DEBUG2(fprintf(stderr,"cpu: csymm args: side=%c, uplo=%c, m=%d, n=%d, alpha=(%.1e, %.1e), \
-           lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
+         DEBUG2(fprintf(stderr,"cpu: csymm args: side=%c, uplo=%c, m=%d, n=%d, alpha=(%.1e, %.1e), lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
            *side, *uplo, *m, *n, crealf(*(float complex*)alpha), cimagf(*(float complex*)alpha),
            *lda, *ldb,crealf(*(float complex*)beta),cimagf(*(float complex*)beta) , *ldc));
 
@@ -53,8 +52,7 @@ void _CSYMM(const char *side, const char *uplo, const int *m, const int *n, cons
 
          return;
     }
-         DEBUG2(fprintf(stderr,"gpu: csymm args: side=%c, uplo=%c, m=%d, n=%d, alpha=(%.1e, %.1e), \
-           lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
+         DEBUG2(fprintf(stderr,"gpu: csymm args: side=%c, uplo=%c, m=%d, n=%d, alpha=(%.1e, %.1e), lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
            *side, *uplo, *m, *n, crealf(*(float complex*)alpha), cimagf(*(float complex*)alpha),
            *lda, *ldb,crealf(*(float complex*)beta),cimagf(*(float complex*)beta) , *ldc));
 

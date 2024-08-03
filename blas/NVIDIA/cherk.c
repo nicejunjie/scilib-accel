@@ -27,8 +27,7 @@ void _CHERK(const char *uplo, const char *trans, const int *n, const int *k, con
     float beta_abs = cuCabsf(*((cuFloatComplex*) beta));
 
     if(avgn < scilib_matrix_offload_size) {
-        DEBUG2(fprintf(stderr,"cpu: cherk args: uplo=%c, trans=%c, n=%d, k=%d, alpha=(%.1e, %.1e), \
-          lda=%d, beta=(%.1e, %.1e), ldc=%d\n",
+        DEBUG2(fprintf(stderr,"cpu: cherk args: uplo=%c, trans=%c, n=%d, k=%d, alpha=(%.1e, %.1e), lda=%d, beta=(%.1e, %.1e), ldc=%d\n",
           *uplo, *trans, *n, *k, crealf(*(float complex*)alpha), cimagf(*(float complex*)alpha),
           *lda, crealf(*(float complex*)beta), cimagf(*(float complex*)beta), *ldc));
 
@@ -49,8 +48,7 @@ void _CHERK(const char *uplo, const char *trans, const int *n, const int *k, con
         return;
     }
 
-    DEBUG2(fprintf(stderr,"gpu: cherk args: uplo=%c, trans=%c, n=%d, k=%d, alpha=(%.1e, %.1e), \
-      lda=%d, beta=(%.1e, %.1e), ldc=%d\n",
+    DEBUG2(fprintf(stderr,"gpu: cherk args: uplo=%c, trans=%c, n=%d, k=%d, alpha=(%.1e, %.1e), lda=%d, beta=(%.1e, %.1e), ldc=%d\n",
       *uplo, *trans, *n, *k, crealf(*(float complex*)alpha), cimagf(*(float complex*)alpha),
       *lda, crealf(*(float complex*)beta), cimagf(*(float complex*)beta), *ldc));
 

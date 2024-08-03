@@ -29,8 +29,7 @@ void _ZSYR2K(const char *uplo, const char *trans, const int *n, const int *k, co
     double beta_abs = cuCabs(*((cuDoubleComplex*) beta));
 
     if(avgn < scilib_matrix_offload_size) {
-        DEBUG2(fprintf(stderr,"cpu: zsyr2k args: uplo=%c, trans=%c, n=%d, k=%d, alpha=(%.1e, %.1e), \
-          lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
+        DEBUG2(fprintf(stderr,"cpu: zsyr2k args: uplo=%c, trans=%c, n=%d, k=%d, alpha=(%.1e, %.1e), lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
           *uplo, *trans, *n, *k, creal(*(double complex*)alpha), cimag(*(double complex*)alpha),
           *lda, *ldb, creal(*(double complex*)beta), cimag(*(double complex*)beta), *ldc));
 
@@ -51,8 +50,7 @@ void _ZSYR2K(const char *uplo, const char *trans, const int *n, const int *k, co
         return;
     }
 
-    DEBUG2(fprintf(stderr,"gpu: zsyr2k args: uplo=%c, trans=%c, n=%d, k=%d, alpha=(%.1e, %.1e), \
-      lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
+    DEBUG2(fprintf(stderr,"gpu: zsyr2k args: uplo=%c, trans=%c, n=%d, k=%d, alpha=(%.1e, %.1e), lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
       *uplo, *trans, *n, *k, creal(*(double complex*)alpha), cimag(*(double complex*)alpha),
       *lda, *ldb, creal(*(double complex*)beta), cimag(*(double complex*)beta), *ldc));
 

@@ -32,8 +32,7 @@ void _ZHEMM(const char *side, const char *uplo, const int *m, const int *n, cons
     //double matrix_mem_size_mb_copy = ((double)sizeA+(double)sizeB+(double)sizeC*ic) / 1024.0 / 1024.0;
 
     if(avgn<scilib_matrix_offload_size)  {
-         DEBUG2(fprintf(stderr,"cpu: zhemm args: side=%c, uplo=%c, m=%d, n=%d, alpha=(%.1e, %.1e), \
-           lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
+         DEBUG2(fprintf(stderr,"cpu: zhemm args: side=%c, uplo=%c, m=%d, n=%d, alpha=(%.1e, %.1e), lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
            *side, *uplo, *m, *n, creal(*(double complex*)alpha), cimag(*(double complex*)alpha),
            *lda, *ldb,creal(*(double complex*)beta),cimag(*(double complex*)beta) , *ldc));
 
@@ -53,8 +52,7 @@ void _ZHEMM(const char *side, const char *uplo, const int *m, const int *n, cons
 
          return;
     }
-         DEBUG2(fprintf(stderr,"gpu: zhemm args: side=%c, uplo=%c, m=%d, n=%d, alpha=(%.1e, %.1e), \
-           lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
+         DEBUG2(fprintf(stderr,"gpu: zhemm args: side=%c, uplo=%c, m=%d, n=%d, alpha=(%.1e, %.1e), lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
            *side, *uplo, *m, *n, creal(*(double complex*)alpha), cimag(*(double complex*)alpha),
            *lda, *ldb,creal(*(double complex*)beta),cimag(*(double complex*)beta) , *ldc));
 

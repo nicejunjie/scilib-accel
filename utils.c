@@ -84,7 +84,7 @@ void move_numa(void *ptr, size_t size, int target_node) {
     //printf("size in move_numa=%d, array size=%d\n",size, size/8);
     double tnuma=mysecond();
     int PAGE_SIZE = getpagesize();
-    size_t rc=0;
+    int rc=0;
     size_t num_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
     size_t num_pages_plus = num_pages + 1; //account for the last page
     int *status = malloc(num_pages_plus*sizeof(int));
@@ -154,7 +154,7 @@ void move_numa(void *ptr, size_t size, int target_node) {
     //for (int i =0; i<size; i++) printf("%d %d\n",i,which_numa(ptr+i,1));
 
     if ( rc > 0) 
-       DEBUG2(fprintf(stderr,"move_page time %15.6f of %lu pages (%lu not moved)\n", tnuma, num_pages, rc));
+       DEBUG2(fprintf(stderr,"move_page time %15.6f of %lu pages (%d not moved)\n", tnuma, num_pages, rc));
     else
        DEBUG2(fprintf(stderr,"move_page time %15.6f of %lu pages\n", tnuma, num_pages));
     return;

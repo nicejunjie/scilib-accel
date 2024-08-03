@@ -37,8 +37,7 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
     double matrix_mem_size_mb_copy = ((double)sizeA+(double)sizeB+(double)sizeC*ic) / 1024.0 / 1024.0;
 
     if(avgn<scilib_matrix_offload_size)  {
-         DEBUG2(fprintf(stderr, "cpu: zgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=(%.1e, %.1e), \  
-            lda=%d, ldb=%d, beta=(%.1e, %.1e),ldc=%d\n",
+         DEBUG2(fprintf(stderr, "cpu: zgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=(%.1e, %.1e), lda=%d, ldb=%d, beta=(%.1e, %.1e),ldc=%d\n",
            *transa, *transb, *m, *n, *k, creal(*(double complex*)alpha), cimag(*(double complex*)alpha), 
            *lda, *ldb, creal(*(double complex*)beta), cimag(*(double complex*)beta), *ldc));
 
@@ -58,15 +57,10 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
          return;
     }
 
-    DEBUG2(fprintf(stderr, "gpu: zgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=(%.1e, %.1e), \  
-       lda=%d, ldb=%d, beta=(%.1e, %.1e),ldc=%d\n",
+    DEBUG2(fprintf(stderr, "gpu: zgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=(%.1e, %.1e), lda=%d, ldb=%d, beta=(%.1e, %.1e),ldc=%d\n",
        *transa, *transb, *m, *n, *k, creal(*(double complex*)alpha), cimag(*(double complex*)alpha), 
        *lda, *ldb, creal(*(double complex*)beta), cimag(*(double complex*)beta), *ldc));
-/*
-   // alpla and beta are complex
-   printf("gpu: zgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=%.1f, lda=%d, ldb=%d, beta=%.1f, ldc=%d\n",
-        *transa, *transb, *m, *n, *k, *alpha, *lda, *ldb, *beta, *ldc);
-*/
+
     cublasOperation_t transA;
     if (transa[0] == 'N' || transa[0] == 'n')  
         transA = CUBLAS_OP_N;
