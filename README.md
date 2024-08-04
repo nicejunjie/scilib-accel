@@ -75,7 +75,7 @@ Multiple Scattering Theory code for first principle calculations https://github.
 | CPU, single Grace | 124s | 82.5s + 35.2s | 0 | |
 | Native GPU (cuSolver) | 57.4s | N/A | N/A | |
 | SCILIB-Accel S1: data copy | 31.5s | 11.7s + 1.4s | 13.6s | |
-| SCILIB-Accel S3: GPU First Use | 30.7 | 15.9s + 3.8 | 3.6s | Matrix reuse: 44 | 
+| SCILIB-Accel S3: GPU First Use | 30.7 | 15.9s + 3.8 | 3.6s | Matrix reuse: 70 | 
 
 
 **HPL (using binary from NVIDIA's HPC container)**
