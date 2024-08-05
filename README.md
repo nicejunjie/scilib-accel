@@ -36,7 +36,7 @@ Optionally use the following environmental variables to fine-tune: <br />
         (Only available on Grace-Hopper)
 
 ## Known issues: 
-Bugs from the UCX side were observed, UCX driver somehow interferes with memory pages and causes issue using NUMA 1 (the HBM). Before NVIDIA fixes the bug, UCX has to be turned off: <br /> 
+For using openmpi in NVHPC/24.3, bugs from the UCX side were observed, UCX driver somehow interferes with memory pages and causes issue using NUMA 1 (the HBM). Before NVIDIA fixes the bug, UCX has to be turned off. The issue has been resolved in NVHPC/24.7. <br /> 
 ```bash
 export OMP_NUM_THREADS=$nt
 mpirun --mca pml ^ucx --mca btl self,vader,tcp -n $nrank -map-by node:PE=$nt $EXE
