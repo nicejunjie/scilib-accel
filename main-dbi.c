@@ -88,6 +88,7 @@ void elf_fini(){
 #endif
 
   for( int i=0; i< fsize; i++) {
+     //fprintf(stderr, "debug %10s %15.6f\n", farray[i].f0, farray[i].t0);
      if(farray[i].t0 > 1e-7)
        fprintf(stderr, "%10s time: total= %15.6f, compute= %15.6f, other= %15.6f\n", farray[i].f0, farray[i].t0, farray[i].t1, farray[i].t0-farray[i].t1) ;
   }

@@ -59,6 +59,7 @@ int which_numa(void *var, size_t bytes) {
 
     ret_code = move_pages(0 /* self memory */, 3, ptr_to_check, NULL, status, 0);
     //return status[2];
+    DEBUG3(fprintf(stderr,"which_numa: %1d %1d %1d %lu\n", status[0], status[1], status[2], bytes));
     if (status[0] == 0 || status[1] == 0 || status[2] == 0) {
         return 0;
     }
@@ -345,5 +346,27 @@ int in_str(const char* s1, char** s2) {
     }
     
     return 0;  // No match found
+}
+
+
+
+
+
+#include <errno.h>
+#define MEMORY_ALIGNMENT 65536
+
+// Custom malloc function that aligns memory
+void* xmalloc(size_t size) {
+    void *ptr = NULL;
+
+    // Align to MEMORY_ALIGNMENT bytes (4KB in this case)
+    int result = posix_memalign(&ptr, MEMORY_ALIGNMENT, size);
+    
+    if (result != 0) {
+        errno = result; // Set errno if allocation fails
+        return NULL;
+    }
+
+    return ptr;
 }
 
