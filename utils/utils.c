@@ -1,4 +1,5 @@
 
+#define _GNU_SOURCE
 //#include "utils.h"
 #include "global.h"
 
@@ -45,38 +46,31 @@ double mysecond_() {return mysecond();}
 double mysecond2_() {return mysecond2();}
 
 
-int which_numa(void *var, size_t bytes) {
-    int status[3];
+int which_numa(void *ptr, size_t bytes) {
     int ret_code;
-    status[0] = -1;
-    status[1] = -1;
-    status[2] = -1;
+    int status[3];
+    char *ptr_to_check[3];
+    void *char_ptr = (char*)ptr;
+    int n = 3;
 
-    void *ptr_to_check[3];
-    ptr_to_check[0] = var;
-    ptr_to_check[1] = var + bytes / sizeof(void) / 2;
-    ptr_to_check[2] = var + bytes / sizeof(void) - 1;
+    for (int i = 0; i < 3; i++) status[i] = -1;
 
-    ret_code = move_pages(0 /* self memory */, 3, ptr_to_check, NULL, status, 0);
-    //return status[2];
-    if (status[0] == 0 || status[1] == 0 || status[2] == 0) {
-        return 0;
-    }
+    ptr_to_check[0] = char_ptr;
+    ptr_to_check[1] = char_ptr + bytes / 2;
+    ptr_to_check[2] = char_ptr + bytes - 1;
+
+    if ( bytes == 0 ) n = 1 ;  
+    else if ( bytes < 3 ) n = bytes; 
+
+    ret_code = move_pages(0 /* self memory */, n, ptr_to_check, NULL, status, 0);
+/*
+#define MOVE_PAGES 279  // syscall number for move_pages
+    ret_code = syscall(MOVE_PAGES, 0, 3, ptr_to_check, NULL, status, 0);
+*/
+    if (status[0] == 0 || status[1] == 0 || status[2] == 0) return 0;
     return 1;
 }
 
-
-int which_numa2(void *var, size_t bytes) {
- //return 0;
- void * ptr_to_check = var;
- int status[1];
- int ret_code;
- status[0]=-1;
- ret_code=move_pages(0 /*self memory */, 1, &ptr_to_check, NULL, status, 0);
- // this print may cause extra NUMA traffic
- // if(debug) printf("Memory at %p is at numa node %d (retcode %d)\n", ptr_to_check, status[0], ret_code);
- return status[0];
-}
 
 
 void move_numa(void *ptr, size_t size, int target_node) {
@@ -91,15 +85,17 @@ void move_numa(void *ptr, size_t size, int target_node) {
     int *nodes = malloc(num_pages_plus*sizeof(int));
     void **page_addrs = malloc(num_pages_plus * sizeof(void *));
 
+    char * char_ptr = ptr; 
     // Populate the array with page addresses
     #pragma omp parallel for
     for (size_t i = 0; i < num_pages; i++) {
-        page_addrs[i] = ptr + (i * PAGE_SIZE )/sizeof(void);
+        page_addrs[i] = char_ptr + i * PAGE_SIZE ;
         nodes[i]=target_node;
         status[i]=-1;
     }
       
-    page_addrs[num_pages] = ptr + size/sizeof(void);
+// check the last byte 
+    page_addrs[num_pages] = char_ptr + size -1 ;
     nodes[num_pages] = target_node;
     status[num_pages] = -1;
       
@@ -112,7 +108,7 @@ void move_numa(void *ptr, size_t size, int target_node) {
                 fprintf(stderr, "warning: %d pages not moved\n", rc); 
                 for (int i = 0; i < num_pages; i++) 
                    if (status[i] < 0) {  // Check if there's an error for this page
-                       fprintf(stderr, "Page %d (at %d) not moved, error: %d %s\n", i, which_numa2(page_addrs[i],0),status[i],strerror(-status[i]));
+                       fprintf(stderr, "Page %d (at %d) not moved, error: %d %s\n", i, which_numa(page_addrs[i],0),status[i],strerror(-status[i]));
                        exit(-1);
                    }
         }
@@ -161,34 +157,6 @@ void move_numa(void *ptr, size_t size, int target_node) {
 }
 
 
-
-
-int check_MPI() {
-    char* pmi_rank = getenv("PMI_RANK");
-    //char* pmix_rank = getenv("MPIX_RANK");
-    char* mvapich_rank = getenv("MV2_COMM_WORLD_RANK");
-    char* ompi_rank = getenv("OMPI_COMM_WORLD_RANK");
-    //char* slurm_rank = getenv("SLURM_PROCID");
-
-    if (pmi_rank != NULL  || mvapich_rank != NULL || ompi_rank != NULL )
-        return 1;
-    else
-        return 0;
-}
-
-int get_MPI_local_rank() {
-    char* pmi_rank = getenv("MPI_LOCALRANKID");
-    char* mvapich_rank = getenv("MV2_COMM_WORLD_LOCAL_RANK");
-    char* ompi_rank = getenv("OMPI_COMM_WORLD_LOCAL_RANK");
-    if (pmi_rank != NULL)
-        return atoi(pmi_rank);
-    else if (mvapich_rank != NULL)
-        return atoi(mvapich_rank);
-    else if (ompi_rank != NULL)
-        return atoi(ompi_rank);
-    else
-        return -1;
-}
 
 void get_exe_path(char **path){
     char *exe_path=malloc(PATH_MAX);
@@ -345,5 +313,35 @@ int in_str(const char* s1, char** s2) {
     }
     
     return 0;  // No match found
+}
+
+
+
+/*  Experimental  */
+
+#include <errno.h>
+#include <unistd.h>  // For sysconf
+#include <dlfcn.h> 
+#include <fcntl.h>
+
+//size_t pagesize = sysconf(_SC_PAGESIZE);
+#define S_1G 1024*1024*1024*2
+#define S_1M 1024*1024
+#define S_64K 65536
+#define S_4K 1024
+#define NALIGN S_64K 
+#define BAR  1 //S_1M*10
+size_t nalign=NALIGN;
+size_t bar=BAR;
+void* xmalloc(size_t size) {
+    static void* (*real_malloc)() = NULL; 
+    void *ptr = NULL;
+    if (!real_malloc)  real_malloc = dlsym(RTLD_NEXT, "malloc") ;
+
+    if ( 0 ||  size < bar) return real_malloc(size);
+
+    size = ( size/nalign + 1 ) * nalign;
+    int result = posix_memalign(&ptr, nalign, size);
+    return ptr;
 }
 

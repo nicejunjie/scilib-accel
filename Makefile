@@ -13,7 +13,7 @@ GPUARCH=NVIDIA
 
 FRIDA_DIR := frida
 
-INCLUDE = -I. -I./blas/$(GPUARCH) -I$(CUINCLUDE) -I./$(FRIDA_DIR)
+INCLUDE = -I. -I./blas/$(GPUARCH) -I./utils -I$(CUINCLUDE) -I./$(FRIDA_DIR)
 
 BLAS = -lblas
 LD_FLAGS = -ldl -lrt -lresolv -lm -pthread -Wl,-z,noexecstack,--gc-sections -lnuma
@@ -34,7 +34,8 @@ FFLAGS = -O2 -mp -g -mcmodel=large #$(MEMMODEL)
 #----------------------------
 
 BLAS_SRCS = $(wildcard blas/$(GPUARCH)/*.c)
-COMMON_SRCS = init.c nvidia.c utils.c $(BLAS_SRCS)
+UTIL_SRCS = $(wildcard utils/*.c)
+COMMON_SRCS = init.c nvidia.c $(UTIL_SRCS) $(BLAS_SRCS)
 #COMMON_SRCS = init.c nvidia.c utils.c blas/$(GPUARCH)/sgemm.c blas/$(GPUARCH)/dgemm.c blas/$(GPUARCH)/cgemm.c blas/$(GPUARCH)/zgemm.c 
 
 SRCS1 = main-dbi.c
@@ -52,12 +53,14 @@ all: dbi dl test_dgemm.x
 dbi: print-nvhome $(FRIDA_DIR) $(TARGET1)
 $(TARGET1): $(OBJ1) 
 	@echo "Building DBI based SCILIB-Accel"
-	$(CC) -o $@ -shared -ffunction-sections -fdata-sections $^ ./$(FRIDA_DIR)/libfrida-gum.a ${LD_FLAGS} ${CFLAGS} $(LIBS)
+	$(CC) -o $@ -shared -ffunction-sections -fdata-sections $^ ./$(FRIDA_DIR)/libfrida-gum.a ${LD_FLAGS} ${CFLAGS} $(LIBS)	
+	chmod go+rx $(TARGET1)
 
 dl: print-nvhome $(TARGET2)
 $(TARGET2): $(OBJ2)
 	@echo "Building DL based SCILIB-Accel"
 	$(CC) -o $@ -shared  $^  ${LD_FLAGS} ${CFLAGS} $(LIBS)
+	chmod go+rx $(TARGET2)
 
 %-dbi.o: %.c
 	$(CC) $(CFLAGS1) -c $< -o $@
