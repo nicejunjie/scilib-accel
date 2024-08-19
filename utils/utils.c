@@ -49,8 +49,8 @@ double mysecond2_() {return mysecond2();}
 int which_numa(void *ptr, size_t bytes) {
     int ret_code;
     int status[3];
-    char *ptr_to_check[3];
-    void *char_ptr = (char*)ptr;
+    void *ptr_to_check[3];
+    char *char_ptr = (char*)ptr;
     int n = 3;
 
     for (int i = 0; i < 3; i++) status[i] = -1;
