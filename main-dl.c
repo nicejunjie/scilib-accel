@@ -18,41 +18,41 @@
 #include <sys/prctl.h> 
 
 
-freplace farray[] = {
+scilib_freplace scilib_farray[] = {
   INIT_FARRAY
 };
-int fsize = sizeof(farray) / sizeof(farray[0]);
+int scilib_fsize = sizeof(scilib_farray) / sizeof(scilib_farray[0]);
 
-void elf_init(){
+void scilib_elf_init(){
 
-  init();
+  scilib_init();
 
   if (scilib_thpoff == 1) 
       prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0);
 
 
 #ifdef NVIDIA
-  nvidia_init();
+  scilib_nvidia_init();
 #endif
 
 // register functions
-  for( int i=0; i< fsize; i++) {
-     farray[i].fptr= dlsym(RTLD_NEXT, farray[i].f0);
+  for( int i=0; i< scilib_fsize; i++) {
+     scilib_farray[i].fptr= dlsym(RTLD_NEXT, scilib_farray[i].f0);
   }
 
   return;
 }
 
 
-void elf_fini(){
+void scilib_elf_fini(){
 
 #ifdef NVIDIA
-  nvidia_fini();
+  scilib_nvidia_fini();
 #endif
 
-  for( int i=0; i< fsize; i++) {
-     if(farray[i].t0 > 1e-7)
-       fprintf(stderr, "%10s time: total= %15.6f, compute= %15.6f, other= %15.6f\n", farray[i].f0, farray[i].t0, farray[i].t1, farray[i].t0-farray[i].t1) ;
+  for( int i=0; i< scilib_fsize; i++) {
+     if(scilib_farray[i].t0 > 1e-7)
+       fprintf(stderr, "%10s time: total= %15.6f, compute= %15.6f, other= %15.6f\n", scilib_farray[i].f0, scilib_farray[i].t0, scilib_farray[i].t1, scilib_farray[i].t0-scilib_farray[i].t1) ;
   }
 
   fflush(stderr);
@@ -61,5 +61,5 @@ void elf_fini(){
   return;
 }
 
-__attribute__((section(".init_array"))) void *__init = elf_init;
-__attribute__((section(".fini_array"))) void *__fini = elf_fini;
+__attribute__((section(".init_array"))) void *__init = scilib_elf_init;
+__attribute__((section(".fini_array"))) void *__fini = scilib_elf_fini;

@@ -19,7 +19,7 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
     static void (*orig_f)() = NULL; 
     double t0=0.0, t1=0.0;
 
-    DEBUG1(t0 -= mysecond());
+    DEBUG1(t0 -= scilib_second());
 
     double avgn=cbrt(*m)*cbrt(*n)*cbrt(*k);
 
@@ -41,18 +41,18 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
            *transa, *transb, *m, *n, *k, creal(*(double complex*)alpha), cimag(*(double complex*)alpha), 
            *lda, *ldb, creal(*(double complex*)beta), cimag(*(double complex*)beta), *ldc));
 
-         if (!orig_f) orig_f = farray[fi].fptr;
-         DEBUG1(t1 -= mysecond());
+         if (!orig_f) orig_f = scilib_farray[fi].fptr;
+         DEBUG1(t1 -= scilib_second());
          orig_f(transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
          double ts;
-         DEBUG1(ts = mysecond());
+         DEBUG1(ts = scilib_second());
          DEBUG1(t1 += ts);
          DEBUG1(t0 += ts);
 
          DEBUG3(fprintf(stderr, "cpu: single zgemm timing(s): total= %10.6f\n", t0 ));
 
-         DEBUG1(farray[fi].t0 += t0);
-         DEBUG1(farray[fi].t1 += t1);
+         DEBUG1(scilib_farray[fi].t0 += t0);
+         DEBUG1(scilib_farray[fi].t1 += t1);
 
          return;
     }
@@ -98,10 +98,10 @@ if (scilib_offload_mode==1) {
     CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    DEBUG1(t1 -= mysecond());
+    DEBUG1(t1 -= scilib_second());
     CUBLAS_CHECK(_CUBLASZGEMM(handle, transA, transB, *m, *n, *k, alpha, d_A, *lda, d_B, *ldb, beta, d_C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
-    DEBUG1(t1 += mysecond());
+    DEBUG1(t1 += scilib_second());
     CUDA_CHECK(cudaMemcpyAsync(C, d_C, sizeC, cudaMemcpyDeviceToHost, stream));
 
     CUDA_CHECK(cudaDeviceSynchronize());
@@ -120,18 +120,18 @@ else {
        if ( inumaC == 0 ) move_numa(C, (size_t)sizeC, NUMA_HBM);
     }
 
-    DEBUG1(t1 -= mysecond());
+    DEBUG1(t1 -= scilib_second());
     CUBLAS_CHECK(_CUBLASZGEMM(handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
-    DEBUG1(t1 += mysecond());
+    DEBUG1(t1 += scilib_second());
 }
 
-    DEBUG1(t0 += mysecond());
+    DEBUG1(t0 += scilib_second());
 
     DEBUG3(fprintf(stderr, "gpu: single zgemm timing(s): total= %10.6f, compute= %10.6f, other= %10.6f\n", t0, t1, t0-t1));
 
-    DEBUG1(farray[fi].t0 += t0);
-    DEBUG1(farray[fi].t1 += t1);
+    DEBUG1(scilib_farray[fi].t0 += t0);
+    DEBUG1(scilib_farray[fi].t1 += t1);
 
     return;
 }

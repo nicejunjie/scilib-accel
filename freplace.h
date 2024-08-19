@@ -5,9 +5,9 @@ typedef struct {
     void *fptr;  // ptr to the orignal func
     double t0;   // total time for func
     double t1;   // compute only time for func
-} freplace ;
+} scilib_freplace ;
 
-extern freplace farray[] ;
+extern scilib_freplace scilib_farray[] ;
 
 enum findex{
   sgemm,

@@ -21,7 +21,7 @@ int myn_dgemm=0;
 int myn_cgemm=0;
 int myn_zgemm=0;
 
-double mysecond()
+double scilib_second()
 {
         struct timeval tp;
         struct timezone tzp;
@@ -30,20 +30,20 @@ double mysecond()
         return ( (double) tp.tv_sec + (double) tp.tv_usec * 1.e-6 );
 }
 
-double mysecond2()
+double scilib_second2()
 {
     struct timespec measure;
     clock_gettime(CLOCK_MONOTONIC, &measure);
     return (double)measure.tv_sec + (double)measure.tv_nsec * 1e-9;
 }
 
-double mysecond_() {return mysecond();}
+double scilib_second_() {return scilib_second();}
 
 void sgemm_(const char *transa, const char *transb, const int *m, const int *n, const int *k, 
                 const float *alpha, const float *a, const int *lda, const double *b, const int *ldb, 
                 const float *beta, float *c, const int *ldc) 
 {
-   myt_sgemm-=mysecond2();
+   myt_sgemm-=scilib_second2();
    myn_sgemm++;
 #ifdef DEBUG
    fprintf(stderr,"MYPROF sgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=%.1f, lda=%d, ldb=%d, beta=%.1f, ldc=%d\n",
@@ -52,7 +52,7 @@ void sgemm_(const char *transa, const char *transb, const int *m, const int *n, 
    static void (*orig_f)()=NULL;
    if (!orig_f) orig_f = dlsym(RTLD_NEXT, __func__);
    orig_f(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
-   myt_sgemm+=mysecond2();
+   myt_sgemm+=scilib_second2();
    return;
 }
 
@@ -60,7 +60,7 @@ void dgemm_(const char *transa, const char *transb, const int *m, const int *n, 
                 const double *alpha, const double *a, const int *lda, const double *b, const int *ldb, 
                 const double *beta, double *c, const int *ldc) 
 {
-   myt_dgemm-=mysecond2();
+   myt_dgemm-=scilib_second2();
    myn_dgemm++;
 #ifdef DEBUG
    fprintf(stderr,"MYPROF dgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=%.1f, lda=%d, ldb=%d, beta=%.1f, ldc=%d\n",
@@ -69,7 +69,7 @@ void dgemm_(const char *transa, const char *transb, const int *m, const int *n, 
    static void (*orig_f)()=NULL;
    if (!orig_f) orig_f = dlsym(RTLD_NEXT, __func__);
    orig_f(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
-   myt_dgemm+=mysecond2();
+   myt_dgemm+=scilib_second2();
    return;
 }
 
@@ -77,7 +77,7 @@ void cgemm_( const char* transa, const char* transb, const int* m, const int* n,
                  const void* alpha, const void* A, const int* lda, const void* B, const int *ldb,
                  const void* beta, void* C, const int* ldc) 
 {
-   myt_cgemm-=mysecond2();
+   myt_cgemm-=scilib_second2();
    myn_cgemm++;
 #ifdef DEBUG
    fprintf(stderr,"MYPROF cgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=(%.1f, %.1f), lda=%d, ldb=%d, beta=(%.1f, %.1f), ldc=%d\n",
@@ -86,7 +86,7 @@ void cgemm_( const char* transa, const char* transb, const int* m, const int* n,
    static void (*orig_f)()=NULL;
    if (!orig_f) orig_f = dlsym(RTLD_NEXT, __func__);
    orig_f(transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
-   myt_cgemm+=mysecond2();
+   myt_cgemm+=scilib_second2();
    return;
 }
 
@@ -94,7 +94,7 @@ void zgemm_( const char* transa, const char* transb, const int* m, const int* n,
                  const void* alpha, const void* A, const int* lda, const void* B, const int *ldb,
                  const void* beta, void* C, const int* ldc) 
 {
-   myt_zgemm-=mysecond2();
+   myt_zgemm-=scilib_second2();
    myn_zgemm++;
 #ifdef DEBUG
    fprintf(stderr,"MYPROF zgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=(%.1f, %.1f), lda=%d, ldb=%d, beta=(%.1f, %.1f), ldc=%d\n",
@@ -103,7 +103,7 @@ void zgemm_( const char* transa, const char* transb, const int* m, const int* n,
    static void (*orig_f)()=NULL;
    if (!orig_f) orig_f = dlsym(RTLD_NEXT, __func__);
    orig_f(transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
-   myt_zgemm+=mysecond2();
+   myt_zgemm+=scilib_second2();
    return;
 }
 
@@ -138,11 +138,11 @@ int get_MPI_rank() {
 
 
 void myinit(){
-   myt_app -= mysecond2();
+   myt_app -= scilib_second2();
 }
 
 void myfini(){
-   myt_app += mysecond2();
+   myt_app += scilib_second2();
    if(myt_sgemm>0.000001) fprintf(stderr,"MYPROF sgemm: count = %d , time = %.6f\n", myn_sgemm, myt_sgemm);
    if(myt_dgemm>0.000001) fprintf(stderr,"MYPROF dgemm: count = %d , time = %.6f\n", myn_dgemm, myt_dgemm);
    if(myt_cgemm>0.000001) fprintf(stderr,"MYPROF cgemm: count = %d , time = %.6f\n", myn_cgemm, myt_cgemm);

@@ -15,7 +15,7 @@
 
 
 
-double mysecond()
+double scilib_second()
 {
 /* struct timeval { long        tv_sec;
             long        tv_usec;        };
@@ -31,7 +31,7 @@ struct timezone { int   tz_minuteswest;
         return ( (double) tp.tv_sec + (double) tp.tv_usec * 1.e-6 );
 }
 
-double mysecond2()
+double scilib_second2()
 {
     struct timespec measure;
 
@@ -42,8 +42,8 @@ double mysecond2()
     return (double)measure.tv_sec + (double)measure.tv_nsec * 1e-9;
 }
 
-double mysecond_() {return mysecond();}
-double mysecond2_() {return mysecond2();}
+double scilib_second_() {return scilib_second();}
+double scilib_second2_() {return scilib_second2();}
 
 
 int which_numa(void *ptr, size_t bytes) {
@@ -76,7 +76,7 @@ int which_numa(void *ptr, size_t bytes) {
 void move_numa(void *ptr, size_t size, int target_node) {
 // size in Bytes
     //printf("size in move_numa=%d, array size=%d\n",size, size/8);
-    double tnuma=mysecond();
+    double tnuma=scilib_second();
     int PAGE_SIZE = getpagesize();
     int rc=0;
     size_t num_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
@@ -145,7 +145,7 @@ void move_numa(void *ptr, size_t size, int target_node) {
     free(nodes);  
     free(status);
 
-    tnuma=mysecond()-tnuma;
+    tnuma=scilib_second()-tnuma;
     //printf("element numa\n");
     //for (int i =0; i<size; i++) printf("%d %d\n",i,which_numa(ptr+i,1));
 

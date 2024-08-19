@@ -15,7 +15,7 @@ int scilib_offload_mode;               //SCILIB_OFFLOAD_MODE
 char **scilib_offload_func;            //SCILIB_OFFLOAD_FUNC, only these comma separated funcs are intercepted in DBI.
 
 
-void parse_env_var() {
+void scilib_parse_env_var() {
    
     char* env_str; 
 
@@ -48,7 +48,7 @@ void parse_env_var() {
 
 
 
-void init(){
-  parse_env_var();
+void scilib_init(){
+  scilib_parse_env_var();
   return;
 }

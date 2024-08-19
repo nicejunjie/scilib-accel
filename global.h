@@ -8,7 +8,7 @@ extern int scilib_offload_mode;           //SCILIB_OFFLOAD_MODE
 extern char **scilib_offload_func;        //SCILIB_OFFLOAD_FUNC
 
 
-extern int skip_flag;
+extern int scilib_skip_flag;
 
 #define NUMA_HBM 1
 

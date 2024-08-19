@@ -12,7 +12,7 @@ void _DSYMM(const char *side, const char *uplo, const int *m, const int *n, cons
     static void (*orig_f)() = NULL; 
     double t0=0.0, t1=0.0;
 
-    DEBUG1(t0 -= mysecond());
+    DEBUG1(t0 -= scilib_second());
 
     const int *k = (side[0] == 'L' || side[0] == 'l') ? m : n;
 
@@ -35,19 +35,19 @@ void _DSYMM(const char *side, const char *uplo, const int *m, const int *n, cons
          DEBUG2(fprintf(stderr,"cpu: dsymm args: side=%c, uplo=%c, m=%d, n=%d, alpha=%.1e, lda=%d, ldb=%d, beta=%.1e, ldc=%d\n",
            *side, *uplo, *m, *n, *alpha, *lda, *ldb, *beta, *ldc));
 
-         if (!orig_f) orig_f = farray[fi].fptr;
-         DEBUG1(t1 -= mysecond());
+         if (!orig_f) orig_f = scilib_farray[fi].fptr;
+         DEBUG1(t1 -= scilib_second());
          orig_f(side, uplo, m, n, alpha, A, lda, B, ldb, beta, C, ldc);
 
          double ts;
-         DEBUG1(ts = mysecond());
+         DEBUG1(ts = scilib_second());
          DEBUG1(t1 += ts);
          DEBUG1(t0 += ts);
 
          DEBUG3(fprintf(stderr, "cpu: single dsymm timing(s): total= %10.6f\n", t0 ));
 
-         DEBUG1(farray[fi].t0 += t0);
-         DEBUG1(farray[fi].t1 += t1);
+         DEBUG1(scilib_farray[fi].t0 += t0);
+         DEBUG1(scilib_farray[fi].t1 += t1);
 
          return;
     }
@@ -71,10 +71,10 @@ if(scilib_offload_mode == 1){
     CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    DEBUG1(t1 -= mysecond());
+    DEBUG1(t1 -= scilib_second());
     CUBLAS_CHECK(cublasDsymm(handle, gpu_side, gpu_uplo, *m, *n, alpha, A, *lda, B, *ldb, beta, C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
-    DEBUG1(t1 += mysecond());
+    DEBUG1(t1 += scilib_second());
     CUDA_CHECK(cudaMemcpy(C, d_C, sizeC, cudaMemcpyDeviceToHost));
 
     CUDA_CHECK(cudaFreeAsync(d_A, stream));
@@ -95,19 +95,19 @@ else {
        DEBUG3(fprintf(stderr,"b,NUMA location of A,B,C: %d %d %d\n", inumaA, inumaB, inumaC));
     }
 
-    DEBUG1(t1 -= mysecond());
+    DEBUG1(t1 -= scilib_second());
     CUBLAS_CHECK(cublasDsymm(handle, gpu_side, gpu_uplo, *m, *n, alpha, A, *lda, B, *ldb, beta, C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
     DEBUG3(fprintf(stderr,"c,NUMA location of A,B,C: %d %d %d\n", inumaA, inumaB, inumaC));
-    DEBUG1(t1 += mysecond());
+    DEBUG1(t1 += scilib_second());
 }
 
-    DEBUG1(t0 += mysecond());
+    DEBUG1(t0 += scilib_second());
 
     DEBUG3(fprintf(stderr, "gpu: single dsymm timing(s): total= %10.6f, compute= %10.6f, other= %10.6f\n", t0, t1, t0-t1));
 
-    DEBUG1(farray[fi].t0 += t0);
-    DEBUG1(farray[fi].t1 += t1);
+    DEBUG1(scilib_farray[fi].t0 += t0);
+    DEBUG1(scilib_farray[fi].t1 += t1);
 
     return;
 }

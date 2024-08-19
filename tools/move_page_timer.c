@@ -12,7 +12,7 @@
 #define DEST_NUMA 1
 
 
-double mysecond()
+double scilib_second()
 {
     struct timespec measure;
 
@@ -154,13 +154,13 @@ int main( int argc, char *argv[]) {
     // Loop to move 10 pages one at a time and measure time for each move
     for (int i = 0; i < num_page; ++i) {
     
-        elapsed_time = -mysecond();
+        elapsed_time = -scilib_second();
         // Move a page from NUMA node 0 to node 1
         if (move_pages(0, 1, &page_addrs[i], &nodes[i], &status[i], MPOL_MF_MOVE) < 0) {
             perror("move_pages");
             exit(EXIT_FAILURE);
         }
-        elapsed_time += mysecond();
+        elapsed_time += scilib_second();
 
         // Store the individual page move time
         page_times[i] = elapsed_time;
@@ -228,9 +228,9 @@ int main( int argc, char *argv[]) {
     memset(ptr, 0, page_size * num_page);
 
     int rc=0;
-    elapsed_time = -mysecond();
+    elapsed_time = -scilib_second();
     rc=move_pages(0 /*self memory*/, num_page, page_addrs, nodes, status, 0);
-    elapsed_time += mysecond();
+    elapsed_time += scilib_second();
     if(rc!=0) {
         if(rc > 0) fprintf(stderr, "warning: %d pages not moved\n", rc);
         if(rc < 0) {fprintf(stderr, "error: page migration failed\n"); exit(-1);}
@@ -263,7 +263,7 @@ int main( int argc, char *argv[]) {
     }
     memset(ptr, 0, page_size * num_page);
 
-    elapsed_time = -mysecond();
+    elapsed_time = -scilib_second();
     #pragma omp parallel
     {
         int thread_rc = 0;
@@ -288,7 +288,7 @@ int main( int argc, char *argv[]) {
             rc += thread_rc;
         }
     }
-    elapsed_time += mysecond();
+    elapsed_time += scilib_second();
     numa_free(ptr, page_size * num_page);
 
     double pbulk_time = elapsed_time;

@@ -2,12 +2,12 @@
 /* Timer Tools */
 
 // timer at us accuracy
-double mysecond();
-double mysecond_();
+double scilib_second();
+double scilib_second_();
 
 // timer at ns accuracy
-double mysecond2();
-double mysecond2_();
+double scilib_second2();
+double scilib_second2_();
 
 
 

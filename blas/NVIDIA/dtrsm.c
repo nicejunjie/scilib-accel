@@ -14,7 +14,7 @@ void _DTRSM(const char *side, const char *uplo, const char *transa, const char *
     static void (*orig_f)() = NULL; 
     double t0=0.0, t1=0.0;
 
-    DEBUG1(t0 -= mysecond());
+    DEBUG1(t0 -= scilib_second());
 
     const int *k = (side[0] == 'L' || side[0] == 'l') ? m : n;
 
@@ -32,19 +32,19 @@ void _DTRSM(const char *side, const char *uplo, const char *transa, const char *
          DEBUG2(fprintf(stderr,"cpu: dtrsm args: side=%c, uplo=%c, transa=%c, diag=%c, m=%d, n=%d, alpha=%.1e, lda=%d, ldb=%d\n",
            *side, *uplo, *transa, *diag, *m, *n, *alpha, *alpha, *lda, *ldb));
 
-         if (!orig_f) orig_f = farray[fi].fptr;
-         DEBUG1(t1 -= mysecond());
+         if (!orig_f) orig_f = scilib_farray[fi].fptr;
+         DEBUG1(t1 -= scilib_second());
          orig_f(side, uplo, transa, diag, m, n, alpha, A, lda, B, ldb);
 
          double ts;
-         DEBUG1(ts = mysecond());
+         DEBUG1(ts = scilib_second());
          DEBUG1(t1 += ts);
          DEBUG1(t0 += ts);
 
          DEBUG3(fprintf(stderr, "cpu: single dtrsm timing(s): total= %10.6f\n", t0 ));
 
-         DEBUG1(farray[fi].t0 += t0);
-         DEBUG1(farray[fi].t1 += t1);
+         DEBUG1(scilib_farray[fi].t0 += t0);
+         DEBUG1(scilib_farray[fi].t1 += t1);
 
          return;
     }
@@ -68,10 +68,10 @@ if(scilib_offload_mode == 1){
     CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, stream));
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    DEBUG1(t1 -= mysecond());
+    DEBUG1(t1 -= scilib_second());
     CUBLAS_CHECK(cublasDtrsm(handle, gpu_side, gpu_uplo, gpu_transa, gpu_diag, *m, *n, alpha, d_A, *lda, d_B, *ldb));
     CUDA_CHECK(cudaDeviceSynchronize());
-    DEBUG1(t1 += mysecond());
+    DEBUG1(t1 += scilib_second());
     CUDA_CHECK(cudaMemcpy(B, d_B, sizeB, cudaMemcpyDeviceToHost));
 
     CUDA_CHECK(cudaFreeAsync(d_A, stream));
@@ -89,19 +89,19 @@ else {
        DEBUG3(fprintf(stderr,"b,NUMA location of A,B: %d %d\n", inumaA, inumaB));
     }
 
-    DEBUG1(t1 -= mysecond());
+    DEBUG1(t1 -= scilib_second());
     CUBLAS_CHECK(cublasDtrsm(handle, gpu_side, gpu_uplo, gpu_transa, gpu_diag, *m, *n, alpha, A, *lda, B, *ldb));
     CUDA_CHECK(cudaDeviceSynchronize());
     DEBUG3(fprintf(stderr,"c,NUMA location of A,B: %d %d\n", inumaA, inumaB));
-    DEBUG1(t1 += mysecond());
+    DEBUG1(t1 += scilib_second());
 }
 
-    DEBUG1(t0 += mysecond());
+    DEBUG1(t0 += scilib_second());
 
     DEBUG3(fprintf(stderr, "gpu: single dtrsm timing(s): total= %10.6f, compute= %10.6f, other= %10.6f\n", t0, t1, t0-t1));
 
-    DEBUG1(farray[fi].t0 += t0);
-    DEBUG1(farray[fi].t1 += t1);
+    DEBUG1(scilib_farray[fi].t0 += t0);
+    DEBUG1(scilib_farray[fi].t1 += t1);
 
     return;
 }

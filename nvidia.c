@@ -9,7 +9,7 @@ cublasHandle_t handle;
 cudaStream_t stream;
 
 
-void nvidia_init(){
+void scilib_nvidia_init(){
 
 /*  CUBLAS  */
     status = cublasCreate(&handle);
@@ -24,7 +24,7 @@ if(scilib_offload_mode == 1)
 }
 
 
-void nvidia_fini(){
+void scilib_nvidia_fini(){
 
 /*  CUBLAS  */
     cublasDestroy(handle);

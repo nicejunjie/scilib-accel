@@ -6,8 +6,8 @@ extern cublasStatus_t status;
 extern cublasHandle_t handle;
 extern cudaStream_t stream;
 
-void nvidia_init();
-void nvidia_fini();
+void scilib_nvidia_init();
+void scilib_nvidia_fini();
 
 
 
