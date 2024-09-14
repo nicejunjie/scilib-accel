@@ -8,6 +8,10 @@ fftw support in progress.
 
 Only NVIDIA GPU is supported but may support other GPU in the future. 
 
+For a fully functional BLAS/LAPACK/ScaLAPACK profiler, please refer to my other tool: 
+[SCILIB-Prof](https://github.com/nicejunjie/scilib-prof/tree/main )
+
+
 ## Compile: 
 `make` to make all 
 
