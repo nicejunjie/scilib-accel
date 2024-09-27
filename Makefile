@@ -15,7 +15,7 @@ FRIDA_DIR := frida
 
 INCLUDE = -I. -I./blas/$(GPUARCH) -I./utils -I$(CUINCLUDE) -I./$(FRIDA_DIR)
 
-BLAS = -lblas
+BLAS = -Mnvpl
 LD_FLAGS = -ldl -lrt -lresolv -lm -pthread -Wl,-z,noexecstack,--gc-sections -lnuma
 LIBS = $(CUBLAS) $(CURT)
 

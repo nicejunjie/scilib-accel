@@ -20,8 +20,11 @@ double get_time() {
 
 
 #define MEMORY_ALIGNMENT  65536
-//#define ALIGN_UP(x,size) x 
+#ifdef MEM_ALIGN
 #define ALIGN_UP(x,size) ( ((size_t)x+(size-1))&(~(size-1)) )
+#else
+#define ALIGN_UP(x,size) x 
+#endif
 
 void* xmalloc(size_t size) {
     void *ptr = NULL;
@@ -225,17 +228,19 @@ int main(int argc, char *argv[]) {
 
     }
 
-
+#ifdef MOVE_NUMA
    move_numa(A, sizeA, 1);
    move_numa(B, sizeB, 1);
    move_numa(C, sizeC, 1);
+#endif
     
    // GPU BLAS
- /*  advise doesn't change anything.
-cudaMemAdvise(A, sizeA, cudaMemAdviseSetPreferredLocation, 0); // Prefer GPU for A
-cudaMemAdvise(B, sizeB, cudaMemAdviseSetPreferredLocation, 0); // Prefer GPU for B
-cudaMemAdvise(C, sizeC, cudaMemAdviseSetPreferredLocation, 0); // Prefer GPU for C
-*/
+ /*  advise doesn't change anything. */
+#ifdef MEM_ADVISE
+    cudaMemAdvise(A, sizeA, cudaMemAdviseSetPreferredLocation, 0); // Prefer GPU for A
+    cudaMemAdvise(B, sizeB, cudaMemAdviseSetPreferredLocation, 0); // Prefer GPU for B
+    cudaMemAdvise(C, sizeC, cudaMemAdviseSetPreferredLocation, 0); // Prefer GPU for C
+#endif
 
     printf("\n-------------------------------\n");
     for(int i=0; i<Iter2; i++) { 

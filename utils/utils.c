@@ -71,7 +71,16 @@ int which_numa(void *ptr, size_t bytes) {
     return 1;
 }
 
-
+#include "nvidia.h"
+void move_numa2(void *ptr, size_t size, int target_node) {
+    double alpha = 1.0;
+    size_t num_elements = size / sizeof(double);
+    for (int i = 0; i < 1; i++) {
+        CUBLAS_CHECK(cublasDscal(handle, num_elements, &alpha, (double*)ptr, 1));
+        cudaStreamSynchronize(stream);
+    }
+    return;
+}
 
 void move_numa(void *ptr, size_t size, int target_node) {
 // size in Bytes
@@ -324,24 +333,52 @@ int in_str(const char* s1, char** s2) {
 #include <dlfcn.h> 
 #include <fcntl.h>
 
-//size_t pagesize = sysconf(_SC_PAGESIZE);
-#define S_1G 1024*1024*1024*2
-#define S_1M 1024*1024
-#define S_64K 65536
-#define S_4K 1024
-#define NALIGN S_64K 
-#define BAR  1 //S_1M*10
-size_t nalign=NALIGN;
-size_t bar=BAR;
+
+
 void* xmalloc(size_t size) {
     static void* (*real_malloc)() = NULL; 
     void *ptr = NULL;
     if (!real_malloc)  real_malloc = dlsym(RTLD_NEXT, "malloc") ;
+    ptr = real_malloc(size);
 
-    if ( 0 ||  size < bar) return real_malloc(size);
+    // Apply madvise to the allocated memory region
+    if (ptr != NULL && size >= 65536) { 
+        if (madvise(ptr, size, MADV_HUGEPAGE) != 0) {
+            perror("madvise");
+        }
+    }
+    return ptr;
+}
 
-    size = ( size/nalign + 1 ) * nalign;
-    int result = posix_memalign(&ptr, nalign, size);
+
+//size_t pagesize = sysconf(_SC_PAGESIZE);
+#include <stdint.h>
+#define S_G 1024ULL*1024*1024
+#define S_M 1024ULL*1024
+#define S_K 1024ULL
+#define NALIGN S_K*64
+#define BAR S_K*64
+size_t scilib_align=NALIGN;
+size_t scilib_bar=BAR;
+void* ymalloc(size_t size) {
+    static void* (*real_malloc)() = NULL; 
+    void *ptr = NULL;
+    if (!real_malloc) {
+        real_malloc = dlsym(RTLD_NEXT, "malloc") ;
+/*
+        fprintf(stderr, "Size of size_t: %zu bits\n", sizeof(size_t) * CHAR_BIT);
+        fprintf(stderr, "Maximum value of size_t: %zu\n", SIZE_MAX);
+        fprintf(stderr, "value of bar %zu  \n", scilib_bar);
+        fprintf(stderr, "alignment to %zu  \n", scilib_align);
+*/
+    } 
+
+    if ( scilib_skip_flag || size < scilib_bar) return real_malloc(size);
+
+    //fprintf(stderr, "posix_memalign %zu < %zu ? %s\n",   size, scilib_bar, (size < scilib_bar) ? "true" : "false");
+
+    size = ( size/scilib_align + 1 ) * scilib_align;
+    int result = posix_memalign(&ptr, scilib_align, size);
     return ptr;
 }
 

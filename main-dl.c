@@ -23,7 +23,13 @@ scilib_freplace scilib_farray[] = {
 };
 int scilib_fsize = sizeof(scilib_farray) / sizeof(scilib_farray[0]);
 
+char *exe_path;
+int scilib_skip_flag; 
+
 void scilib_elf_init(){
+
+  get_exe_path(&exe_path);
+  scilib_skip_flag = check_string(exe_path);
 
   scilib_init();
 
