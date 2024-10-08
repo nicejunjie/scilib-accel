@@ -12,6 +12,13 @@ For a fully functional BLAS/LAPACK/ScaLAPACK profiler, please refer to my other 
 [SCILIB-Prof](https://github.com/nicejunjie/scilib-prof/tree/main )
 
 
+# More about SCILIB-Accel auto offload approach: 
+BLAS auto offload isn't new, since Cray LIBSCI, IBM ESSL, NVIDIA NVBLAS all attempt to do offload. 
+However, these libraries suffer huge cost of data transfer by copying matrices to/from GPU for every BLAS call. 
+Recognizing common use patterns of BLAS calls, SCILIB-accel introduces a first-touch type of data management strategy (S3 below) optimized for NVIDIA Grace-Hopper,
+which minimizes data movement. 
+To my knowledge, this is the first tool that allows real performant BLAS auto-offload on GPU. 
+
 ## Compile: 
 `make` to make all 
 
@@ -36,7 +43,7 @@ Optionally use the following environmental variables to fine-tune: <br />
   - S2: use unified memory access without explicit data movement;  (only available on Grace-Hopper)
   - S3: (default) apply GPU First Use policy, data is migrated to GPU HBM upon the first use of cuBLAS and stay resident on HBM. 
         This policy is very similiar to OpenMP First Touch, with the assumption that the CPU access of the migrated matrices on HBM
-         are relatively trivial comparing to amount of GPU local access. 
+         are relatively trivial compared to the amount of GPU local access. 
         (Only available on Grace-Hopper)
 
 ## Known issues: 
