@@ -97,6 +97,8 @@ Multiple Scattering Theory code for first principle calculations https://github.
 | SCILIB-Accel S3: GPU First Use | 11.3 | 14.2 | 9.2 | Matrix reuse: 6 |
 | Native GPU | 51.7 | - | - | |
 
-## Reference: 
+## Reference:  
+For more details, please see this [presentation](https://github.com/nicejunjie/scilib-accel/blob/main/presentation/BLAS-auto-offload.pdf)
+
 This paper summarizes the early developments. The current performance is much better than it was outlined in the paper. <br />
 [Automatic BLAS Offloading on Unified Memory Architecture: A Study on NVIDIA Grace-Hopper](https://arxiv.org/abs/2404.13195)
