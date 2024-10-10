@@ -1,5 +1,5 @@
 # SCILIB-Accel
-Automatic GPU offload for scientific libraries (hopefully not just BLAS).  Designed for NVidia Grace-Hopper. 
+Automatic GPU offload for scientific libraries (hopefully not just BLAS).  Designed for NVIDIA Grace-Hopper. 
 
 All level-3 BLAS subroutines are supported now! <br />
 *gemm, *symm, *trmm, *trsm, *syrk, *syr2k, *hemm, *herk, *her2k.
@@ -14,9 +14,13 @@ For a fully functional BLAS/LAPACK/ScaLAPACK profiler, please refer to my other 
 
 # More about SCILIB-Accel auto offload approach: 
 BLAS auto offload isn't new, since Cray LIBSCI, IBM ESSL, NVIDIA NVBLAS all attempt to do offload. 
-However, these libraries suffer huge cost of data transfer by copying matrices to/from GPU for every BLAS call. 
+However, these libraries suffer huge cost of data transfer by copying matrices to/from GPU for every BLAS call.  
+Additionally, the NVBLAS I'm able to test has ridiculous implementation overhead. 
+Therefore, these tools are never practically useful. 
+
 Recognizing common use patterns of BLAS calls, SCILIB-accel introduces a first-touch type of data management strategy (S3 below) optimized for NVIDIA Grace-Hopper,
 which minimizes data movement. 
+
 To my knowledge, this is the first tool that allows real performant BLAS auto-offload on GPU. 
 
 ## Compile: 
