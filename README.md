@@ -85,6 +85,7 @@ real-space Density Functional Theory code https://real-space.org
 
 **MuST ( MPI x OMP = 28x2)** <br />
 Multiple Scattering Theory code for first principle calculations https://github.com/mstsuite/MuST
+Test case here is a LSMS run on 56-atom alloy systmem. 
 | Method | App Total Runtime | ZGEMM+ZTRSM Time  | Data Movement | Notes |
 |--------|---------------------------|------------|---------------|-------|
 | CPU, single Grace | 124s | 82.5s + 35.2s | 0 | |
