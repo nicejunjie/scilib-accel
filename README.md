@@ -15,7 +15,7 @@ For a fully functional BLAS/LAPACK/ScaLAPACK profiler, please refer to my other 
 # More about SCILIB-Accel auto offload approach: 
 BLAS auto offload isn't new, since Cray LIBSCI, IBM ESSL, NVIDIA NVBLAS all attempt to do offload. 
 However, these libraries suffer huge cost of data transfer by copying matrices to/from GPU for every BLAS call.  
-Additionally, the NVBLAS I'm able to test has ridiculous implementation overhead. 
+Additionally, NVBLAS is heavily over-engineered and has excessive implementation overhead. 
 Therefore, these tools are never practically useful. 
 
 Recognizing common use patterns of BLAS calls, SCILIB-accel introduces a first-touch type of data management strategy (S3 below) optimized for NVIDIA Grace-Hopper,
@@ -51,27 +51,24 @@ Optionally use the following environmental variables to fine-tune: <br />
         (Only available on Grace-Hopper)
 
 ## Known issues: 
-For using openmpi in NVHPC/24.3, bugs from the UCX side were observed, UCX driver somehow interferes with memory pages and causes issue using NUMA 1 (the HBM). Before NVIDIA fixes the bug, UCX has to be turned off. The issue has been resolved in NVHPC/24.7. <br /> 
-```bash
-export OMP_NUM_THREADS=$nt
-mpirun --mca pml ^ucx --mca btl self,vader,tcp -n $nrank -map-by node:PE=$nt $EXE
-```
-or 
-```bash
-export OMP_NUM_THREADS=$nt
-export OMPI_MCA_pml="^ucx"
-export OMPI_MCA_btl="self,vader"
-export OMPI_MCA_coll="^hcoll"
+For using openmpi in NVHPC, bugs from the UCX side were observed and hcoll should be disabled. <br /> 
 
+```bash
+export OMP_NUM_THREADS=$nt
+export OMPI_MCA_coll="^hcoll"
 mpirun -n $nrank -map-by node:PE=$nt $EXE
 ```
 <!-- export OMPI_MCA_btl_tcp_if_exclude="lo" -->
-<!-- export OMPI_MCA_btl="self,vader,tcp" -->
+<!-- export OMPI_MCA_btl="self,vader,tcp" --> 
+<!-- export OMPI_MCA_pml="^ucx" -->
+<!-- export OMPI_MCA_btl="self,vader" -->
+
 
 
 ## Latest test data:  
 **PARSEC ( MPI x OMP = 32x2) <br />**
-real-space Density Functional Theory code https://real-space.org 
+Real-space Density Functional Theory code https://real-space.org.   
+These are single node runs for a system with about 2000 Si atoms. 
 | Method | App Total Runtime | DGEMM Time | Data Movement | Notes |
 |--------|---------------------------|------------|---------------|-------|
 | CPU, single Grace | 776.5 | 608s | 0 | |
@@ -84,14 +81,22 @@ real-space Density Functional Theory code https://real-space.org
 
 
 **MuST ( MPI x OMP = 28x2)** <br />
-Multiple Scattering Theory code for first principle calculations https://github.com/mstsuite/MuST
-Test case here is a LSMS run on 56-atom alloy systmem. 
+Multiple Scattering Theory code for first principle calculations https://github.com/mstsuite/MuST 
+
+This test case here is a LSMS run for 56-atom alloy system on single node. 
 | Method | App Total Runtime | ZGEMM+ZTRSM Time  | Data Movement | Notes |
 |--------|---------------------------|------------|---------------|-------|
 | CPU, single Grace | 124s | 82.5s + 35.2s | 0 | |
 | Native GPU (cuSolver) | 57.4s | N/A | N/A | |
 | SCILIB-Accel S1: data copy | 31.5s | 11.7s + 1.4s | 13.6s | |
-| SCILIB-Accel S3: GPU First Use | 30.7 | 15.9s + 3.8 | 3.6s | Matrix reuse: 70 | 
+| SCILIB-Accel S3: GPU First Use | 30.7 | 15.9s + 3.8s | 3.6s | Matrix reuse: 70 |  
+
+Another test case is a LSMS run for 56000-atom alloy system. Data is only partially available due to the size of the run. 
+The setup is the minimum number of nodes required to fit this test case into memory, node-to-node speedup is ~2.7x. 
+| Method | App Total Runtime | ZGEMM+ZTRSM Time  | Data Movement | Notes |
+|--------|---------------------------|------------|---------------|-------|
+| 160 Grace-Grace nodes | 8047.0s | - | 0 | |
+| 320 Grace-Hopper nodes, SCILIB-Accel S3 | 1480.2s | 869s+115s | 5.0s | - |  
 
 
 **HPL (using binary from NVIDIA's HPC container)**
