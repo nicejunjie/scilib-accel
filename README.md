@@ -91,12 +91,14 @@ This test case here is a LSMS run for 56-atom alloy system on single node.
 | SCILIB-Accel S1: data copy | 31.5s | 11.7s + 1.4s | 13.6s | |
 | SCILIB-Accel S3: GPU First Use | 30.7 | 15.9s + 3.8s | 3.6s | Matrix reuse: 70 |  
 
-Another test case is a LSMS run for 56000-atom alloy system. Data is only partially available due to the size of the run. 
-The setup is the minimum number of nodes required to fit this test case into memory, node-to-node speedup is ~2.7x. 
-| Method | App Total Runtime | ZGEMM+ZTRSM Time  | Data Movement | Notes |
+Another test case is a LSMS run for 5600-atom alloy system. 
+This workload can perfectly scale from 25 nodes to 150 nodes, GH vs GG speedup 2.8~3.2x using S3: GPU First Use.  
+| Method | App Total Runtime | ZGEMM+ZTRSM Time  | Data Movement | Notes | 
 |--------|---------------------------|------------|---------------|-------|
-| 160 Grace-Grace nodes | 8047.0s | - | 0 | |
-| 320 Grace-Hopper nodes, SCILIB-Accel S3 | 1480.2s | 869s+115s | 5.0s | - |  
+| 150 Grace-Grace nodes | 997s | - | 0 | |
+| 150 Grace-Hopper nodes | 673s | - | 0 | |  
+| 150 Grace-Hopper nodes, SCILIB-Accel S1 | 435s | 152s+17s | ~100s | - |  
+| 150 Grace-Hopper nodes, SCILIB-Accel S3 | 357s | 184s+35s | 3.3s | - |  
 
 
 **HPL (using binary from NVIDIA's HPC container)**
