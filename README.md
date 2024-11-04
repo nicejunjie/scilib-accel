@@ -81,7 +81,10 @@ These are single node runs for a system with about 2000 Si atoms.
 
 
 **MuST ( MPI x OMP = 28x2)** <br />
-Multiple Scattering Theory code for first principle calculations https://github.com/mstsuite/MuST 
+Multiple Scattering Theory code for first principle calculations https://github.com/mstsuite/MuST  
+
+The code has a CUDA port, but auto-offload is 2x faster than the native CUDA code. 
+
 
 This test case here is a LSMS run for 56-atom alloy system on single node. 
 | Method | App Total Runtime | ZGEMM+ZTRSM Time  | Data Movement | Notes |
@@ -96,7 +99,7 @@ This workload can perfectly scale from 25 nodes to 150 nodes, GH vs GG speedup 2
 | Method | App Total Runtime | ZGEMM+ZTRSM Time  | Data Movement | Notes | 
 |--------|---------------------------|------------|---------------|-------|
 | 150 Grace-Grace nodes | 997s | - | 0 | |
-| 150 Grace-Hopper nodes | 673s | - | 0 | |  
+| 150 Grace-Hopper nodes, Native GPU (cuSolver) | 673s | - | 0 | |  
 | 150 Grace-Hopper nodes, SCILIB-Accel S1 | 435s | 152s+17s | ~100s | - |  
 | 150 Grace-Hopper nodes, SCILIB-Accel S3 | 357s | 184s+35s | 3.3s | - |  
 
