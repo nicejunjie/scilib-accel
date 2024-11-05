@@ -66,7 +66,7 @@ mpirun -n $nrank -map-by node:PE=$nt $EXE
 
 
 ## Latest test data:  
-**PARSEC ( MPI x OMP = 32x2) <br />**
+**PARSEC  <br />**
 Real-space Density Functional Theory code https://real-space.org.   
 These are single node runs for a system with about 2000 Si atoms. 
 | Method | App Total Runtime | DGEMM Time | Data Movement | Notes |
@@ -80,36 +80,36 @@ These are single node runs for a system with about 2000 Si atoms.
 \* require both PARSEC and SCILIB-Accel to be recompiled with -gpu=unified, and only works well with 64k page due to CUDA bugs in 4k. 
 
 
-**MuST ( MPI x OMP = 28x2)** <br />
+**MuST <br />**
 Multiple Scattering Theory code for first principle calculations https://github.com/mstsuite/MuST  
 
 The code has a CUDA port, but auto-offload is 2x faster than the native CUDA code. 
 
 
-This test case here is a LSMS run for 56-atom alloy system on single node. 
-| Method | App Total Runtime | ZGEMM+ZTRSM Time  | Data Movement | Notes |
-|--------|---------------------------|------------|---------------|-------|
-| CPU, single Grace | 124s | 82.5s + 35.2s | 0 | |
-| Native GPU (cuSolver) | 57.4s | N/A | N/A | |
-| SCILIB-Accel S1: data copy | 31.5s | 11.7s + 1.4s | 13.6s | |
-| SCILIB-Accel S3: GPU First Use | 30.7 | 15.9s + 3.8s | 3.6s | Matrix reuse: 70 |  
+<!-- This test case here is a LSMS run for 56-atom alloy system on single node. -->
+<!-- | Method | App Total Runtime | ZGEMM+ZTRSM Time  | Data Movement | Notes |-->
+<!-- |--------|---------------------------|------------|---------------|-------|-->
+<!-- | CPU, single Grace | 124s | 82.5s + 35.2s | 0 | |-->
+<!-- | Native GPU (cuSolver) | 57.4s | N/A | N/A | |-->
+<!-- | SCILIB-Accel S1: data copy | 31.5s | 11.7s + 1.4s | 13.6s | |-->
+<!-- | SCILIB-Accel S3: GPU First Use | 30.7 | 15.9s + 3.8s | 3.6s | matrix reuse: 70 |-->  
 
-Another test case is a LSMS run for 5600-atom alloy system. 
+Test case: LSMS run for 5600-atom alloy system. 
 This workload can perfectly scale from 25 nodes to 150 nodes, GH vs GG speedup 2.8~3.2x using S3: GPU First Use.  
 | Method | App Total Runtime | ZGEMM+ZTRSM Time  | Data Movement | Notes | 
 |--------|---------------------------|------------|---------------|-------|
-| 150 Grace-Grace nodes | 997s | - | 0 | |
-| 150 Grace-Hopper nodes, Native GPU (cuSolver) | 673s | - | 0 | |  
-| 150 Grace-Hopper nodes, SCILIB-Accel S1 | 435s | 152s+17s | ~100s | - |  
-| 150 Grace-Hopper nodes, SCILIB-Accel S3 | 357s | 184s+35s | 3.3s | - |  
+| 150 GG CPU nodes | 997s | - | 0 | |
+| 150 GH GPU nodes, Native GPU (cuSolver) | 673s | - | 0 | |  
+| 150 GH GPU nodes, SCILIB-Accel S1 | 435s | 152s+17s | ~100s | - |  
+| 150 GH GPU nodes, SCILIB-Accel S3 | 357s | 184s+35s | 3.3s | matrix reuse 780 |  
 
 
-**HPL (using binary from NVIDIA's HPC container)**
+**HPL (binary from NVIDIA's HPC container)**
 | HPL Method | Rmax (TFlops) | t_dgemm (s) | t_data (s) | Notes |
 |------------|---------------|-------------|------------|-------|
 | CPU, single Grace | 2.8 | 188.8 | 0 | |
 | SCILIB-Accel S2: pin on HBM | 25.7 | 11.6 | 0 | |
-| SCILIB-Accel S3: GPU First Use | 11.3 | 14.2 | 9.2 | Matrix reuse: 6 |
+| SCILIB-Accel S3: GPU First Use | 11.3 | 14.2 | 9.2 | matrix reuse: 6 |
 | Native GPU | 51.7 | - | - | |
 
 ## Reference:  
