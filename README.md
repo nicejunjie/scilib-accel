@@ -33,7 +33,7 @@ DBI interferes with many profilers, so if you'd like to attach a profiler, use t
 
 
 ## Usage: 
-load the chosen library before running your BLAS-heavy application.  
+Preload this tool before running your BLAS-heavy application.  
 
 [recommended] `LD_PRELOAD=$PATH_TO_LIB/scilib-dbi.so` <br /> 
 or  
@@ -48,7 +48,7 @@ Optionally use the following environmental variables to fine-tune: <br />
   - S2: use unified memory access without explicit data movement;  (only available on Grace-Hopper)
   - S3: (default) apply GPU First Use policy, data is migrated to GPU HBM upon the first use of cuBLAS and stay resident on HBM. 
         This policy is very similiar to OpenMP First Touch, with the assumption that the CPU access of the migrated matrices on HBM
-         are relatively trivial compared to the amount of GPU local access. 
+         are relatively trivial comparing to the amount of GPU local access. 
         (Only available on Grace-Hopper)
 
 ## Known issues: 
