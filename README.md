@@ -101,7 +101,7 @@ Test case: LSMS run for 5600-atom alloy system.
 This workload can perfectly scale from 25 nodes to 150 nodes, GH vs GG speedup 2.8~3.2x using S3: GPU First Use.  
 | Method | App Total Runtime | ZGEMM+ZTRSM Time  | Data Movement | Notes | 
 |--------|---------------------------|------------|---------------|-------|
-| 150 GG CPU nodes | 997s | - | 0 | |
+| 150 GG CPU nodes | 997s | ~850s | 0 | |
 | 150 GH GPU nodes, Native GPU (cuSolver) | 673s | - | 0 | |  
 | 150 GH GPU nodes, SCILIB-Accel S1 | 435s | 152s+17s | ~100s | - |  
 | 150 GH GPU nodes, SCILIB-Accel S3 | 357s | 184s+35s | 3.3s | matrix reuse 780 |  
