@@ -16,17 +16,18 @@ For a fully functional BLAS/LAPACK/ScaLAPACK profiler, please refer to my other 
 BLAS auto offload isn't new, since Cray LIBSCI, IBM ESSL, NVIDIA NVBLAS all attempt to do offload. 
 However, these libraries suffer huge cost of data transfer by copying matrices to/from GPU for every BLAS call.  
 Additionally, NVBLAS is heavily over-engineered and has excessive implementation overhead. 
-Therefore, these tools are never practically useful. 
+Therefore, tools are never practically useful. 
 
 Recognizing common use patterns of BLAS calls, SCILIB-accel introduces a first-touch type of data management strategy (S3 below) optimized for NVIDIA Grace-Hopper,
-which minimizes data movement. 
+ data movement in many practical use cases is minimum. 
 
-To my knowledge, this is the first tool that allows real performant BLAS auto-offload on GPU. 
+To my knowledge, this is the first tool that allows  performant BLAS auto-offload on GPU for real HPC applications. 
 
 ## Compile: 
 `make` to make all 
 
-[recommended] `make dbi` to make only the DBI-based version which works for both dynamically and statically linked BLAS, but needs FRIDA DBI library (downloads automatically). 
+[recommended] `make dbi` to make only the DBI-based version which works for both dynamically and statically linked BLAS, but needs FRIDA DBI library (downloads automatically).  
+DBI interferes with many profilers, so if you'd like to attach a profiler, use the DLSYM-based approach below. 
 
 `make dl` to make only the DLSYM-based version which only works with dynamically linked BLAS. This version has no dependency on the external DBI library but also has fewer features available (key offload features are not affected).  
 
@@ -77,7 +78,9 @@ These are single node runs for a system with about 2000 Si atoms.
 | SCILIB-Accel S2: -gpu=unified * | 246.8s | 56.6s | N/A | 64k page |
 | SCILIB-Accel S3: GPU First Use | 220.3s | 29.1s | 1.3s | Matrix reuse: 570 | 
 
-\* require both PARSEC and SCILIB-Accel to be recompiled with -gpu=unified, and only works well with 64k page due to CUDA bugs in 4k. 
+\* require both PARSEC and SCILIB-Accel to be recompiled with -gpu=unified, and only works well with 64k page due to CUDA bugs in 4k.  
+-gpu=managed is another related flag enabling managed memory, it performs significantly worse. 
+Grace-Hopper also supports counter-based page migration, it is the least performing one. 
 
 
 **MuST <br />**
