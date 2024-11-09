@@ -16,7 +16,7 @@ For a fully functional BLAS/LAPACK/ScaLAPACK profiler, please refer to my other 
 BLAS auto offload isn't new, since Cray LIBSCI, IBM ESSL, NVIDIA NVBLAS all attempt to do offload. 
 However, these libraries suffer huge cost of data transfer by copying matrices to/from GPU for every BLAS call.  
 Additionally, NVBLAS is heavily over-engineered and has excessive implementation overhead. 
-Therefore, tools are never practically useful. 
+These tools are never practically useful. 
 
 Recognizing common use patterns of BLAS calls, SCILIB-accel introduces a first-touch type of data management strategy (S3 below) optimized for NVIDIA Grace-Hopper,
  data movement in many practical use cases is minimum. 
