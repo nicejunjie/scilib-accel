@@ -76,8 +76,8 @@ void move_numa2(void *ptr, size_t size, int target_node) {
     double alpha = 1.0;
     size_t num_elements = size / sizeof(double);
     for (int i = 0; i < 1; i++) {
-        CUBLAS_CHECK(cublasDscal(handle, num_elements, &alpha, (double*)ptr, 1));
-        cudaStreamSynchronize(stream);
+        CUBLAS_CHECK(cublasDscal(scilib_cublas_handle, num_elements, &alpha, (double*)ptr, 1));
+        cudaStreamSynchronize(scilib_cuda_stream);
     }
     return;
 }
@@ -211,6 +211,7 @@ int check_string(const char *str) {
         "ibrun",
         "mpirun",
         "orterun",
+        "prterun",
         "orted",
         "mpirun_rsh",
         "mpiexec",

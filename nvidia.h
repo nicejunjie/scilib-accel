@@ -1,10 +1,12 @@
 
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
+#include <cusolverDn.h>
 
-extern cublasStatus_t status;
-extern cublasHandle_t handle;
-extern cudaStream_t stream;
+
+extern cublasHandle_t scilib_cublas_handle;
+extern cusolverDnHandle_t scilib_cusolverdn_handle;
+extern cudaStream_t scilib_cuda_stream;
 
 void scilib_nvidia_init();
 void scilib_nvidia_fini();
@@ -36,5 +38,12 @@ do {                                                                \
 } while (0)
 
 
-
-
+#define CUSOLVER_CHECK(call)                                            \
+do {                                                                    \
+    cusolverStatus_t status = call;                                     \
+    if (status != CUSOLVER_STATUS_SUCCESS) {                           \
+        fprintf(stderr, "CUSOLVER error: %d in %s:%d\n",               \
+                status, __FILE__, __LINE__);                           \
+        exit(EXIT_FAILURE);                                            \
+    }                                                                   \
+} while (0)

@@ -60,22 +60,22 @@ void _STRSM(const char *side, const char *uplo, const char *transa, const char *
 if(scilib_offload_mode == 1){
     float *d_A, *d_B;
 
-    CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, stream));
-    CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, stream));
+    CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, scilib_cuda_stream));
+    CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, scilib_cuda_stream));
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, scilib_cuda_stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, scilib_cuda_stream));
     CUDA_CHECK(cudaDeviceSynchronize());
 
     DEBUG1(t1 -= scilib_second());
-    CUBLAS_CHECK(cublasStrsm(handle, gpu_side, gpu_uplo, gpu_transa, gpu_diag, *m, *n, alpha, d_A, *lda, d_B, *ldb));
+    CUBLAS_CHECK(cublasStrsm(scilib_cublas_handle, gpu_side, gpu_uplo, gpu_transa, gpu_diag, *m, *n, alpha, d_A, *lda, d_B, *ldb));
     CUDA_CHECK(cudaDeviceSynchronize());
     DEBUG1(t1 += scilib_second());
     CUDA_CHECK(cudaMemcpy(B, d_B, sizeB, cudaMemcpyDeviceToHost));
 
-    CUDA_CHECK(cudaFreeAsync(d_A, stream));
-    CUDA_CHECK(cudaFreeAsync(d_B, stream));
+    CUDA_CHECK(cudaFreeAsync(d_A, scilib_cuda_stream));
+    CUDA_CHECK(cudaFreeAsync(d_B, scilib_cuda_stream));
 
 }
 else {
@@ -90,7 +90,7 @@ else {
     }
 
     DEBUG1(t1 -= scilib_second());
-    CUBLAS_CHECK(cublasStrsm(handle, gpu_side, gpu_uplo, gpu_transa, gpu_diag, *m, *n, alpha, A, *lda, B, *ldb));
+    CUBLAS_CHECK(cublasStrsm(scilib_cublas_handle, gpu_side, gpu_uplo, gpu_transa, gpu_diag, *m, *n, alpha, A, *lda, B, *ldb));
     CUDA_CHECK(cudaDeviceSynchronize());
     DEBUG3(fprintf(stderr,"c,NUMA location of A,B: %d %d\n", inumaA, inumaB));
     DEBUG1(t1 += scilib_second());

@@ -47,7 +47,7 @@ void _DGEMV(const char *trans, const int *m, const int *n, const double *alpha, 
         if(inumaA == 0)  
           orig_f(trans, m, n, alpha, A, lda, x, incx, beta, y, incy);
         else {
-          CUBLAS_CHECK(cublasDgemv(handle, gpu_trans, *m, *n, alpha, A, *lda, x, *incx, beta, y, *incy));
+          CUBLAS_CHECK(cublasDgemv(scilib_cublas_handle, gpu_trans, *m, *n, alpha, A, *lda, x, *incx, beta, y, *incy));
           CUDA_CHECK(cudaDeviceSynchronize());
        }
 

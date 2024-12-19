@@ -1,5 +1,8 @@
 #include "myblas.h"
 
+
+//#define GEMM3M 
+
 #ifdef GEMM3M
 #define _CUBLASZGEMM cublasZgemm3m
 #else 
@@ -88,26 +91,26 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
 if (scilib_offload_mode==1) {
     cuDoubleComplex *d_A, *d_B, *d_C;
 
-    CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, stream));
-    CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, stream));
-    CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC, stream));
+    CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, scilib_cuda_stream));
+    CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, scilib_cuda_stream));
+    CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC, scilib_cuda_stream));
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, scilib_cuda_stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, scilib_cuda_stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, scilib_cuda_stream));
     CUDA_CHECK(cudaDeviceSynchronize());
 
     DEBUG1(t1 -= scilib_second());
-    CUBLAS_CHECK(_CUBLASZGEMM(handle, transA, transB, *m, *n, *k, alpha, d_A, *lda, d_B, *ldb, beta, d_C, *ldc));
+    CUBLAS_CHECK(_CUBLASZGEMM(scilib_cublas_handle, transA, transB, *m, *n, *k, alpha, d_A, *lda, d_B, *ldb, beta, d_C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
     DEBUG1(t1 += scilib_second());
-    CUDA_CHECK(cudaMemcpyAsync(C, d_C, sizeC, cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaMemcpyAsync(C, d_C, sizeC, cudaMemcpyDeviceToHost, scilib_cuda_stream));
 
     CUDA_CHECK(cudaDeviceSynchronize());
-    CUDA_CHECK(cudaFreeAsync(d_A, stream));
-    CUDA_CHECK(cudaFreeAsync(d_B, stream));
-    CUDA_CHECK(cudaFreeAsync(d_C, stream));
+    CUDA_CHECK(cudaFreeAsync(d_A, scilib_cuda_stream));
+    CUDA_CHECK(cudaFreeAsync(d_B, scilib_cuda_stream));
+    CUDA_CHECK(cudaFreeAsync(d_C, scilib_cuda_stream));
 
 } 
 else {
@@ -121,7 +124,7 @@ else {
     }
 
     DEBUG1(t1 -= scilib_second());
-    CUBLAS_CHECK(_CUBLASZGEMM(handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc));
+    CUBLAS_CHECK(_CUBLASZGEMM(scilib_cublas_handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc));
     CUDA_CHECK(cudaDeviceSynchronize());
     DEBUG1(t1 += scilib_second());
 }

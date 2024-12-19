@@ -6,6 +6,7 @@ FC = pgf90
 
 NVHOME := $(shell pgf90_path=$$(which pgf90) && dirname "$$(dirname "$$(dirname "$$pgf90_path")")")
 CUBLAS = $(NVHOME)/math_libs/lib64/libcublas.so
+CUSOLVER = $(NVHOME)/math_libs/lib64/libcusolver.so
 CURT = $(NVHOME)/cuda/lib64/libcudart.so
 CUINCLUDE = $(NVHOME)/cuda/include
 
@@ -17,7 +18,7 @@ INCLUDE = -I. -I./blas/$(GPUARCH) -I./utils -I$(CUINCLUDE) -I./$(FRIDA_DIR)
 
 BLAS = -Mnvpl
 LD_FLAGS = -ldl -lrt -lresolv -lm -pthread -Wl,-z,noexecstack,--gc-sections -lnuma
-LIBS = $(CUBLAS) $(CURT)
+LIBS = $(CUBLAS) $(CURT) $(CUSOLVER)
 
 TARGET1 = scilib-dbi.so
 TARGET2 = scilib-dl.so
