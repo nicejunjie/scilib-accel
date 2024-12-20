@@ -1,6 +1,8 @@
 # SCILIB-Accel
 Automatic GPU offload for scientific libraries (hopefully not just BLAS).  Designed for NVIDIA Grace-Hopper. 
 
+See this presentation [presentation](https://github.com/nicejunjie/scilib-accel/blob/main/presentation/BLAS-auto-offload_dec_2024.pdf) for full explanation and latest data. 
+
 All level-3 BLAS subroutines are supported now! <br />
 *gemm, *symm, *trmm, *trsm, *syrk, *syr2k, *hemm, *herk, *her2k.
 
@@ -88,15 +90,6 @@ Multiple Scattering Theory code for first principle calculations https://github.
 
 The code has a CUDA port, but auto-offload is 2x faster than the native CUDA code. 
 
-
-<!-- This test case here is a LSMS run for 56-atom alloy system on single node. -->
-<!-- | Method | App Total Runtime | ZGEMM+ZTRSM Time  | Data Movement | Notes |-->
-<!-- |--------|---------------------------|------------|---------------|-------|-->
-<!-- | CPU, single Grace | 124s | 82.5s + 35.2s | 0 | |-->
-<!-- | Native GPU (cuSolver) | 57.4s | N/A | N/A | |-->
-<!-- | SCILIB-Accel S1: data copy | 31.5s | 11.7s + 1.4s | 13.6s | |-->
-<!-- | SCILIB-Accel S3: GPU First Use | 30.7 | 15.9s + 3.8s | 3.6s | matrix reuse: 70 |-->  
-
 Test case: LSMS run for 5600-atom alloy system. 
 This workload can perfectly scale from 25 nodes to 150 nodes, GH vs GG speedup 2.8~3.2x using S3: GPU First Use.  
 | Method | App Total Runtime | ZGEMM+ZTRSM Time  | Data Movement | Notes | 
@@ -116,7 +109,7 @@ This workload can perfectly scale from 25 nodes to 150 nodes, GH vs GG speedup 2
 | Native GPU | 51.7 | - | - | |
 
 ## Reference:  
-For more details, please see this [presentation](https://github.com/nicejunjie/scilib-accel/blob/main/presentation/BLAS-auto-offload.pdf)
+For more details, please see this [presentation](https://github.com/nicejunjie/scilib-accel/blob/main/presentation/BLAS-auto-offload_dec_2024.pdf)
 
 This paper summarizes the early developments. The current performance is much better than it was outlined in the paper. <br />
 [Automatic BLAS Offloading on Unified Memory Architecture: A Study on NVIDIA Grace-Hopper](https://arxiv.org/abs/2404.13195)
