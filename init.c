@@ -13,6 +13,7 @@ int scilib_debug;                      //SCILIB_DEBUG
 int scilib_thpoff;                     //SCILIB_THPOFF
 int scilib_offload_mode;               //SCILIB_OFFLOAD_MODE
 char **scilib_offload_func;            //SCILIB_OFFLOAD_FUNC, only these comma separated funcs are intercepted in DBI.
+int scilib_num_cuda_streams;           //SCILIB_NUM_STREAMS
 
 
 void scilib_parse_env_var() {
@@ -34,6 +35,9 @@ void scilib_parse_env_var() {
 
     env_str = getenv("SCILIB_OFFLOAD_FUNC");
     scilib_offload_func = env_str ? str_split(env_str,',') : NULL; 
+
+    env_str = getenv("SCILIB_NUM_STREAMS") ;
+    scilib_num_cuda_streams = env_str? atoi(env_str) : 1;
      
 }
 

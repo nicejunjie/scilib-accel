@@ -15,7 +15,7 @@
 
 //to disable THP
 #include <sys/prctl.h> 
-
+#include "scilib_pthread_wrap.h"
 
 GumInterceptor * interceptor;
 gpointer *hook_address;
@@ -45,12 +45,26 @@ void scilib_elf_init(){
   scilib_nvidia_init();
 #endif
 
+  scilib_pthread_wrap_init();
+
   hook_address = malloc(scilib_fsize * sizeof(gpointer));
 
   gum_init_embedded ();
   interceptor = gum_interceptor_obtain ();
   
   gum_interceptor_begin_transaction (interceptor);
+  gpointer orig_pthread_create_addr = gum_find_function("pthread_create");
+  gpointer new_pthread_create_addr = (gpointer)scilib_pthread_create_wrapper;
+
+  if (orig_pthread_create_addr && new_pthread_create_addr) {
+      gum_interceptor_replace_fast(interceptor,
+                                  orig_pthread_create_addr,
+                                  new_pthread_create_addr,
+                                  (gpointer*)&real_pthread_create); // Frida populates our real_pthread_create
+  } else {
+      g_printerr("SCILIB: Warning - Failed to find and hook pthread_create.\n");
+      // Multi-threading stream assignment might not work as expected.
+  }
   for( int i=0; i< scilib_fsize; i++) {
      if( !scilib_offload_func || in_str(scilib_farray[i].f0, scilib_offload_func)) {
          hook_address[i] = gum_find_function(scilib_farray[i].f0);

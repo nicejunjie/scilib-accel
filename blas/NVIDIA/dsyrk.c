@@ -47,6 +47,7 @@ void _DSYRK(const char *uplo, const char *trans, const int *n, const int *k, con
         return;
     }
 
+    cudaStream_t current_cuda_stream = scilib_get_current_thread_stream();
     DEBUG2(fprintf(stderr,"gpu: dsyrk args: uplo=%c, trans=%c, n=%d, k=%d, alpha=%.1e, lda=%d, beta=%.1e, ldc=%d\n",
         *uplo, *trans, *n, *k, *alpha, *lda, *beta, *ldc));
 
@@ -64,22 +65,23 @@ void _DSYRK(const char *uplo, const char *trans, const int *n, const int *k, con
     if(scilib_offload_mode == 1) {
         double *d_A, *d_C;
 
-        CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, scilib_cuda_stream));
-        CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC, scilib_cuda_stream));
-        CUDA_CHECK(cudaDeviceSynchronize());
+        CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, current_cuda_stream));
+        CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC, current_cuda_stream));
+        CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
 
-        CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, scilib_cuda_stream));
-        CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, scilib_cuda_stream));
-        CUDA_CHECK(cudaDeviceSynchronize());
+        CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, current_cuda_stream));
+        CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, current_cuda_stream));
+        CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
 
         DEBUG1(t1 -= scilib_second());
+    CUBLAS_CHECK(cublasSetStream(scilib_cublas_handle, current_cuda_stream));
         CUBLAS_CHECK(cublasDsyrk(scilib_cublas_handle, gpu_uplo, gpu_trans, *n, *k, alpha, d_A, *lda, beta, d_C, *ldc));
-        CUDA_CHECK(cudaDeviceSynchronize());
+        CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
         DEBUG1(t1 += scilib_second());
         CUDA_CHECK(cudaMemcpy(C, d_C, sizeC, cudaMemcpyDeviceToHost));
 
-        CUDA_CHECK(cudaFreeAsync(d_A, scilib_cuda_stream));
-        CUDA_CHECK(cudaFreeAsync(d_C, scilib_cuda_stream));
+        CUDA_CHECK(cudaFreeAsync(d_A, current_cuda_stream));
+        CUDA_CHECK(cudaFreeAsync(d_C, current_cuda_stream));
     }
     else {
         int inumaA, inumaC;
@@ -93,8 +95,9 @@ void _DSYRK(const char *uplo, const char *trans, const int *n, const int *k, con
         }
 
         DEBUG1(t1 -= scilib_second());
+    CUBLAS_CHECK(cublasSetStream(scilib_cublas_handle, current_cuda_stream));
         CUBLAS_CHECK(cublasDsyrk(scilib_cublas_handle, gpu_uplo, gpu_trans, *n, *k, alpha, A, *lda, beta, C, *ldc));
-        CUDA_CHECK(cudaDeviceSynchronize());
+        CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
         DEBUG3(fprintf(stderr,"c,NUMA location of A,C: %d %d\n", inumaA, inumaC));
         DEBUG1(t1 += scilib_second());
     }

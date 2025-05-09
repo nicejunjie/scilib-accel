@@ -16,6 +16,7 @@
 
 //to disable THP
 #include <sys/prctl.h> 
+#include "scilib_pthread_wrap.h"
 
 
 scilib_freplace scilib_farray[] = {
@@ -25,6 +26,13 @@ int scilib_fsize = sizeof(scilib_farray) / sizeof(scilib_farray[0]);
 
 char *exe_path;
 int scilib_skip_flag; 
+
+int pthread_create(pthread_t *__restrict thread,
+  const pthread_attr_t *__restrict attr,
+  void *(*start_routine)(void *),
+  void *__restrict arg) {
+    scilib_pthread_create_wrapper(thread, attr, start_routine, arg);
+  }
 
 void scilib_elf_init(){
 
@@ -40,6 +48,8 @@ void scilib_elf_init(){
 #ifdef NVIDIA
   scilib_nvidia_init();
 #endif
+
+  scilib_pthread_wrap_init();
 
 // register functions
   for( int i=0; i< scilib_fsize; i++) {

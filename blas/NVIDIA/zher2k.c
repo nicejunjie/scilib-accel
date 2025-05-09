@@ -51,6 +51,7 @@ void _ZHER2K(const char *uplo, const char *trans, const int *n, const int *k, co
         return;
     }
 
+    cudaStream_t current_cuda_stream = scilib_get_current_thread_stream();
     DEBUG2(fprintf(stderr,"gpu: zher2k args: uplo=%c, trans=%c, n=%d, k=%d, alpha=(%.1e, %.1e), \
       lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
       *uplo, *trans, *n, *k, creal(*(double complex*)alpha), cimag(*(double complex*)alpha),
@@ -62,25 +63,26 @@ void _ZHER2K(const char *uplo, const char *trans, const int *n, const int *k, co
     if(scilib_offload_mode == 1) {
         cuDoubleComplex *d_A, *d_B, *d_C;
 
-        CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, scilib_cuda_stream));
-        CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, scilib_cuda_stream));
-        CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC, scilib_cuda_stream));
-        CUDA_CHECK(cudaDeviceSynchronize());
+        CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, current_cuda_stream));
+        CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, current_cuda_stream));
+        CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC, current_cuda_stream));
+        CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
 
-        CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, scilib_cuda_stream));
-        CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, scilib_cuda_stream));
-        CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, scilib_cuda_stream));
-        CUDA_CHECK(cudaDeviceSynchronize());
+        CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, current_cuda_stream));
+        CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, current_cuda_stream));
+        CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, current_cuda_stream));
+        CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
 
         DEBUG1(t1 -= scilib_second());
+    CUBLAS_CHECK(cublasSetStream(scilib_cublas_handle, current_cuda_stream));
         CUBLAS_CHECK(cublasZher2k(scilib_cublas_handle, gpu_uplo, gpu_trans, *n, *k, alpha, d_A, *lda, d_B, *ldb, beta, d_C, *ldc));
-        CUDA_CHECK(cudaDeviceSynchronize());
+        CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
         DEBUG1(t1 += scilib_second());
         CUDA_CHECK(cudaMemcpy(C, d_C, sizeC, cudaMemcpyDeviceToHost));
 
-        CUDA_CHECK(cudaFreeAsync(d_A, scilib_cuda_stream));
-        CUDA_CHECK(cudaFreeAsync(d_B, scilib_cuda_stream));
-        CUDA_CHECK(cudaFreeAsync(d_C, scilib_cuda_stream));
+        CUDA_CHECK(cudaFreeAsync(d_A, current_cuda_stream));
+        CUDA_CHECK(cudaFreeAsync(d_B, current_cuda_stream));
+        CUDA_CHECK(cudaFreeAsync(d_C, current_cuda_stream));
     }
     else {
         int inumaA, inumaB, inumaC;
@@ -96,8 +98,9 @@ void _ZHER2K(const char *uplo, const char *trans, const int *n, const int *k, co
         }
 
         DEBUG1(t1 -= scilib_second());
+    CUBLAS_CHECK(cublasSetStream(scilib_cublas_handle, current_cuda_stream));
         CUBLAS_CHECK(cublasZher2k(scilib_cublas_handle, gpu_uplo, gpu_trans, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc));
-        CUDA_CHECK(cudaDeviceSynchronize());
+        CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
         DEBUG3(fprintf(stderr,"c,NUMA location of A,B,C: %d %d %d\n", inumaA, inumaB, inumaC));
         DEBUG1(t1 += scilib_second());
     }
