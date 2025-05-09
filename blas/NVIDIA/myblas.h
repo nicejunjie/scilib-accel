@@ -13,6 +13,7 @@
 #include "global.h"
 #include "utils.h"
 #include "init.h"
+#include "scilib_pthread_wrap.h"
 
 
 

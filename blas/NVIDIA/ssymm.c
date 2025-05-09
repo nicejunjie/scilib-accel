@@ -51,6 +51,7 @@ void _SSYMM(const char *side, const char *uplo, const int *m, const int *n, cons
 
          return;
     }
+    cudaStream_t current_cuda_stream = scilib_get_current_thread_stream();
     DEBUG2(fprintf(stderr,"gpu: ssymm args: side=%c, uplo=%c, m=%d, n=%d, alpha=%.1e, lda=%d, ldb=%d, beta=%.1e, ldc=%d\n",
         *side, *uplo, *m, *n, *alpha, *lda, *ldb, *beta, *ldc));
 
@@ -60,26 +61,27 @@ void _SSYMM(const char *side, const char *uplo, const int *m, const int *n, cons
 if(scilib_offload_mode == 1){
     float *d_A, *d_B, *d_C;
 
-    CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, scilib_cuda_stream));
-    CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, scilib_cuda_stream));
-    CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC, scilib_cuda_stream));
-    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, current_cuda_stream));
+    CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, current_cuda_stream));
+    CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC, current_cuda_stream));
+    CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
 
-    CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, scilib_cuda_stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, scilib_cuda_stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, current_cuda_stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, current_cuda_stream));
 //    if( beta_abs > 1.0e-8 )  bug if gemm on a submatrix
-    CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, scilib_cuda_stream));
-    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, current_cuda_stream));
+    CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
 
     DEBUG1(t1 -= scilib_second());
+    CUBLAS_CHECK(cublasSetStream(scilib_cublas_handle, current_cuda_stream));
     CUBLAS_CHECK(cublasSsymm(scilib_cublas_handle, gpu_side, gpu_uplo, *m, *n, alpha, A, *lda, B, *ldb, beta, C, *ldc));
-    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
     DEBUG1(t1 += scilib_second());
     CUDA_CHECK(cudaMemcpy(C, d_C, sizeC, cudaMemcpyDeviceToHost));
 
-    CUDA_CHECK(cudaFreeAsync(d_A, scilib_cuda_stream));
-    CUDA_CHECK(cudaFreeAsync(d_B, scilib_cuda_stream));
-    CUDA_CHECK(cudaFreeAsync(d_C, scilib_cuda_stream));
+    CUDA_CHECK(cudaFreeAsync(d_A, current_cuda_stream));
+    CUDA_CHECK(cudaFreeAsync(d_B, current_cuda_stream));
+    CUDA_CHECK(cudaFreeAsync(d_C, current_cuda_stream));
 
 }
 else {
@@ -96,8 +98,9 @@ else {
     }
 
     DEBUG1(t1 -= scilib_second());
+    CUBLAS_CHECK(cublasSetStream(scilib_cublas_handle, current_cuda_stream));
     CUBLAS_CHECK(cublasSsymm(scilib_cublas_handle, gpu_side, gpu_uplo, *m, *n, alpha, A, *lda, B, *ldb, beta, C, *ldc));
-    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
     DEBUG3(fprintf(stderr,"c,NUMA location of A,B,C: %d %d %d\n", inumaA, inumaB, inumaC));
     DEBUG1(t1 += scilib_second());
 }

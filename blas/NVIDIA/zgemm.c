@@ -60,6 +60,7 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
          return;
     }
 
+    cudaStream_t current_cuda_stream = scilib_get_current_thread_stream();
     DEBUG2(fprintf(stderr, "gpu: zgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=(%.1e, %.1e), lda=%d, ldb=%d, beta=(%.1e, %.1e),ldc=%d\n",
        *transa, *transb, *m, *n, *k, creal(*(double complex*)alpha), cimag(*(double complex*)alpha), 
        *lda, *ldb, creal(*(double complex*)beta), cimag(*(double complex*)beta), *ldc));
@@ -91,26 +92,27 @@ void _ZGEMM( const char* transa, const char* transb, const int* m, const int* n,
 if (scilib_offload_mode==1) {
     cuDoubleComplex *d_A, *d_B, *d_C;
 
-    CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, scilib_cuda_stream));
-    CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, scilib_cuda_stream));
-    CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC, scilib_cuda_stream));
-    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(cudaMallocAsync((void **)&d_A, sizeA, current_cuda_stream));
+    CUDA_CHECK(cudaMallocAsync((void **)&d_B, sizeB, current_cuda_stream));
+    CUDA_CHECK(cudaMallocAsync((void **)&d_C, sizeC, current_cuda_stream));
+    CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
 
-    CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, scilib_cuda_stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, scilib_cuda_stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, scilib_cuda_stream));
-    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(cudaMemcpyAsync(d_A, A, sizeA, cudaMemcpyHostToDevice, current_cuda_stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_B, B, sizeB, cudaMemcpyHostToDevice, current_cuda_stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_C, C, sizeC, cudaMemcpyHostToDevice, current_cuda_stream));
+    CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
 
     DEBUG1(t1 -= scilib_second());
+    CUBLAS_CHECK(cublasSetStream(scilib_cublas_handle, current_cuda_stream));
     CUBLAS_CHECK(_CUBLASZGEMM(scilib_cublas_handle, transA, transB, *m, *n, *k, alpha, d_A, *lda, d_B, *ldb, beta, d_C, *ldc));
-    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
     DEBUG1(t1 += scilib_second());
-    CUDA_CHECK(cudaMemcpyAsync(C, d_C, sizeC, cudaMemcpyDeviceToHost, scilib_cuda_stream));
+    CUDA_CHECK(cudaMemcpyAsync(C, d_C, sizeC, cudaMemcpyDeviceToHost, current_cuda_stream));
 
-    CUDA_CHECK(cudaDeviceSynchronize());
-    CUDA_CHECK(cudaFreeAsync(d_A, scilib_cuda_stream));
-    CUDA_CHECK(cudaFreeAsync(d_B, scilib_cuda_stream));
-    CUDA_CHECK(cudaFreeAsync(d_C, scilib_cuda_stream));
+    CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
+    CUDA_CHECK(cudaFreeAsync(d_A, current_cuda_stream));
+    CUDA_CHECK(cudaFreeAsync(d_B, current_cuda_stream));
+    CUDA_CHECK(cudaFreeAsync(d_C, current_cuda_stream));
 
 } 
 else {
@@ -124,8 +126,9 @@ else {
     }
 
     DEBUG1(t1 -= scilib_second());
+    CUBLAS_CHECK(cublasSetStream(scilib_cublas_handle, current_cuda_stream));
     CUBLAS_CHECK(_CUBLASZGEMM(scilib_cublas_handle, transA, transB, *m, *n, *k, alpha, A, *lda, B, *ldb, beta, C, *ldc));
-    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(cudaStreamSynchronize(current_cuda_stream));
     DEBUG1(t1 += scilib_second());
 }
 
