@@ -45,6 +45,7 @@ Optionally use the following environmental variables to fine-tune: <br />
 - `SCILIB_DEBUG=[0|1|2|3]` : 0 - default, no printouts, 1 - print timing, 2 -- print BLAS input arguments, 3 -- for developer diagnosis. <br />
 - `SCILIB_MATRIX_OFFLOAD_SIZE=[size]` : size=(mnk)^(1/3), default is 500, the size above which GPU offload will occur.  <br />
 - `SCILIB_THPOFF=[0|1]` : 0 - default, use system default THP setting, 1 -- turn off THP.  <br />
+- `SCILIB_NUM_STREAMS=[num]` : default is 1. It sets the total number of streams for all the threads. Streams are assigned to threads in a round-robin pattern.  <br />
 - `SCILIB_OFFLOAD_MODE=[1|2|3]`: different data movement strategies.  <br/>
   - S1: perform cudaMemCpy to/from GPU for every cuBLAS call;  (available on any GPU)  
   - S2: use unified memory access without explicit data movement;  (only available on Grace-Hopper)
