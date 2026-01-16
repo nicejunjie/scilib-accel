@@ -84,8 +84,8 @@ else {
        inumaA=which_numa(A, sizeA);
        inumaB=which_numa(B, sizeB);
        DEBUG3(fprintf(stderr,"a,NUMA location of A,B: %d %d\n", inumaA, inumaB));
-       if ( inumaA == 0 ) move_numa(A, sizeA, NUMA_HBM);
-       if ( inumaB == 0 ) move_numa(B, sizeB, NUMA_HBM);
+       if ( inumaA == 0 ) move_numa(A, sizeA, scilib_hbm_numa);
+       if ( inumaB == 0 ) move_numa(B, sizeB, scilib_hbm_numa);
        DEBUG3(fprintf(stderr,"b,NUMA location of A,B: %d %d\n", inumaA, inumaB));
     }
 

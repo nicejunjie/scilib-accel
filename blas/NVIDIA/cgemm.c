@@ -120,9 +120,9 @@ else {
        inumaB=which_numa(B, sizeB);
        inumaC=which_numa(C, sizeC);
        DEBUG3(fprintf(stderr,"a,NUMA location of A,B,C: %d %d %d\n", inumaA, inumaB, inumaC));
-       if ( inumaA == 0 ) move_numa(A, (size_t)sizeA, NUMA_HBM);
-       if ( inumaB == 0 ) move_numa(B, (size_t)sizeB, NUMA_HBM);
-       if ( inumaC == 0 ) move_numa(C, (size_t)sizeC, NUMA_HBM);
+       if ( inumaA == 0 ) move_numa(A, (size_t)sizeA, scilib_hbm_numa);
+       if ( inumaB == 0 ) move_numa(B, (size_t)sizeB, scilib_hbm_numa);
+       if ( inumaC == 0 ) move_numa(C, (size_t)sizeC, scilib_hbm_numa);
        DEBUG3(fprintf(stderr,"b,NUMA location of A,B,C: %d %d %d\n", inumaA, inumaB, inumaC));
     }
 

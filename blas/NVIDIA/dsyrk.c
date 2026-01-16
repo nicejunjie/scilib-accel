@@ -87,8 +87,8 @@ void _DSYRK(const char *uplo, const char *trans, const int *n, const int *k, con
             inumaA = which_numa(A, sizeA);
             inumaC = which_numa(C, sizeC);
             DEBUG3(fprintf(stderr,"a,NUMA location of A,C: %d %d\n", inumaA, inumaC));
-            if (inumaA == 0) move_numa(A, sizeA, NUMA_HBM);
-            if (inumaC == 0) move_numa(C, sizeC, NUMA_HBM);
+            if (inumaA == 0) move_numa(A, sizeA, scilib_hbm_numa);
+            if (inumaC == 0) move_numa(C, sizeC, scilib_hbm_numa);
             DEBUG3(fprintf(stderr,"b,NUMA location of A,C: %d %d\n", inumaA, inumaC));
         }
 
