@@ -1,7 +1,7 @@
 # SCILIB-Accel
 Automatic GPU offload for scientific libraries (hopefully not just BLAS).  Designed for NVIDIA Grace-Hopper. 
 
-See this presentation [presentation](https://github.com/nicejunjie/scilib-accel/blob/main/presentation/BLAS-auto-offload_dec_2024.pdf) for full explanation and latest data. 
+See this paper [Performant Automatic BLAS Offloading on Unified Memory Architecture with OpenMP First-Touch Style Data Movement](https://arxiv.org/pdf/2501.00279) for full explanation and latest data. 
 
 All level-3 BLAS subroutines are supported now! <br />
 *gemm, *symm, *trmm, *trsm, *syrk, *syr2k, *hemm, *herk, *her2k.
@@ -111,5 +111,7 @@ This workload can perfectly scale from 25 nodes to 150 nodes, GH vs GG speedup 2
 ## Reference:  
 For more details, please see this [presentation](https://github.com/nicejunjie/scilib-accel/blob/main/presentation/BLAS-auto-offload_dec_2024.pdf)
 
-This paper summarizes the early developments. The current performance is much better than it was outlined in the paper. <br />
-[Automatic BLAS Offloading on Unified Memory Architecture: A Study on NVIDIA Grace-Hopper](https://arxiv.org/abs/2404.13195)
+This paper fully summarizes the effort. <br /> 
+[Performant Automatic BLAS Offloading on Unified Memory Architecture with OpenMP First-Touch Style Data Movement](https://arxiv.org/pdf/2501.00279)
+<br />An early paper outlined the initital idea. <br />
+[Automatic BLAS Offloading on Unified Memory Architecture: A Study on NVIDIA Grace-Hopper](https://arxiv.org/abs/2404.13195) 
