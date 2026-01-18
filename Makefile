@@ -5,16 +5,16 @@ CC = pgcc
 FC = pgf90
 
 NVHOME := $(shell pgf90_path=$$(which pgf90) && dirname "$$(dirname "$$(dirname "$$pgf90_path")")")
-CUBLAS = $(NVHOME)/math_libs/lib64/libcublas.so
-CUSOLVER = $(NVHOME)/math_libs/lib64/libcusolver.so
-CURT = $(NVHOME)/cuda/lib64/libcudart.so
-CUINCLUDE = $(NVHOME)/cuda/include
+CUBLAS = -lcublas  # $(NVHOME)/math_libs/lib64/libcublas.so
+CUSOLVER = -lcusolver  # $(NVHOME)/math_libs/lib64/libcusolver.so
+CURT = # $(NVHOME)/cuda/lib64/libcudart.so
+#CUINCLUDE = # $(NVHOME)/cuda/include
 
 GPUARCH=NVIDIA
 
 FRIDA_DIR := frida
 
-INCLUDE = -I. -I./blas/$(GPUARCH) -I./utils -I$(CUINCLUDE) -I./$(FRIDA_DIR)
+INCLUDE = -I. -I./blas/$(GPUARCH) -I./utils -I./$(FRIDA_DIR)
 
 BLAS = -Mnvpl
 LD_FLAGS = -ldl -lrt -lresolv -lm -pthread -Wl,-z,noexecstack,--gc-sections -lnuma
@@ -28,7 +28,7 @@ TARGET2 = scilib-dl.so
 CPPFLAGS += -D$(GPUARCH)
 
 
-CFLAGS = -O2 -mp -fPIC -w  -g $(INCLUDE) $(CPPFLAGS) $(MEMMODEL)
+CFLAGS = -O2 -mp -fPIC -w  -g $(INCLUDE) $(CPPFLAGS) $(MEMMODEL) -cuda
 CFLAGS1 = $(CFLAGS) -DDBI -I./$(FRIDA_DIR)
 FFLAGS = -O2 -mp -g -mcmodel=large #$(MEMMODEL)
 
