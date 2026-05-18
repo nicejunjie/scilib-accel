@@ -78,13 +78,17 @@ Six implementations of the page-migration step are now selectable at runtime:
 ## Headline numbers (quick-test/run2.sh, MuST/LSMS, CoCrFeMnNi, 28 MPI × OMP=2)
 
 ```
-config                                  app wall (s)   speedup vs CPU
-Pure CPU baseline (no LD_PRELOAD)          126.7          1.00×
-scilib-accel, HBM-malloc OFF                32.2          3.93×
-scilib-accel default (HBM-malloc 64 MB)     26.5          4.79×
+config                                              app wall (s)   speedup vs CPU
+Pure CPU baseline (no LD_PRELOAD)                      126.7          1.00×
+scilib-accel, HBM-malloc OFF                            32.2          3.94×
+scilib-accel + HBM-malloc 64 MB, 16-byte align          26.5          4.78×
+scilib-accel + HBM-malloc + MPS (16-byte align)         23.8          5.33×
+scilib-accel + HBM-malloc + MPS + 4 KB align (default)  22.8          5.55×
 ```
 
-Physics output matches the reference `o_n0000000_CoCrFeMnNi.ref` byte-for-byte. See `NOTES_HBM_MALLOC.md` for the full investigation, profile data, and what was ruled out.
+Physics output matches the reference `o_n0000000_CoCrFeMnNi.ref` byte-for-byte in every config tested. See `NOTES_HBM_MALLOC.md` for the full investigation, profile data, and what was ruled out.
+
+The 4 KB alignment win comes from giving cuBLAS-target buffers stronger alignment than glibc's default 16 bytes — see the env-var table below. The MPS win comes from running with NVIDIA's Multi-Process Service active so 28 MPI ranks share a CUDA context and cuBLAS launches overlap on the SMs; `quick-test/run2.sh` starts it by default (`MPS=0 ./run2.sh` to disable). MPS isn't a scilib-accel feature — it's an NVIDIA daemon — but the speedup ladder above accounts for it.
 
 ## Don't trust `test_dgemm.x` to validate `move_numa` changes
 
@@ -130,6 +134,7 @@ The proxy reproduces the **sign** of each variant change (prefetch → slower, H
 | variable | purpose | default |
 |---|---|---|
 | `SCILIB_HBM_MALLOC_MB` | HBM-aware malloc threshold (0 = off) | on, **64 MB** |
+| `SCILIB_HBM_MALLOC_ALIGN` | alignment (bytes, power of two) for ≥threshold allocations via `posix_memalign` | **4096** |
 | `SCILIB_MV` | `move_numa` variant 0–6 | `0` (`move_pages`) |
 | `SCILIB_OFFLOAD_MODE` | S1/S2/S3 strategy | `3` |
 | `SCILIB_MATRIX_OFFLOAD_SIZE` | offload threshold as cbrt(m·n·k) | `500` |
@@ -144,8 +149,13 @@ The proxy reproduces the **sign** of each variant change (prefetch → slower, H
 - OpenMPI+UCX requires `--mca coll ^hcoll` (already wired into `quick-test/run2.sh`).
 - THP on the test node is `never` — hugepage optimisations don't apply without a system-level change.
 
-## Repo state at the end of this session
+## What's been committed and pushed
 
-- Modified, not committed: `utils/utils.c`, `quick-test/run2.sh`, `quick-test/exe.sh`.
-- New, not committed: `proxy/` (proxy benchmark), `NOTES_HBM_MALLOC.md`, this `CLAUDE.md`.
-- Default behaviour change: HBM-aware malloc on at 64 MB. Set `SCILIB_HBM_MALLOC_MB=0` to revert to the previous baseline.
+Commits on `main` from this work (most recent first):
+
+- `6eba2d9` Add missing `utils/gpu_migrate.{cu,h}` so the build is reproducible.
+- `85b17f2` Force ≥64 MB allocations to 4 KB alignment (~0.9 s faster on MuST).
+- `3be0157` README: document MPS (~10 % extra speedup, total 5.33× over CPU).
+- `b2aa6c5` Add HBM-aware malloc interposer; `SCILIB_MV` variant switch; misc cleanup; uniform debug prints across 30 BLAS wrappers; new `proxy/` benchmark.
+
+`quick-test/run2.sh` and `quick-test/exe.sh` are intentionally not in this repo — they live in the parent test harness and are managed locally.

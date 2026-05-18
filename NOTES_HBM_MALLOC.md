@@ -166,8 +166,73 @@ the default for robustness.
 
 ## State of the repo
 
-- Nothing committed.
-- Untracked: `proxy/`, `NOTES_HBM_MALLOC.md` (this file).
-- Modified: `utils/utils.c`, `quick-test/run2.sh`, `quick-test/exe.sh`.
-- Default behaviour change: HBM-aware malloc on at 64 MB threshold.
-  Set `SCILIB_HBM_MALLOC_MB=0` to disable.
+All work committed and pushed to `origin/main`:
+
+- `b2aa6c5` HBM-aware malloc + `SCILIB_MV` + cleanup + proxy
+- `3be0157` README MPS doc
+- `85b17f2` 4 KB alignment default
+- `6eba2d9` add `utils/gpu_migrate.{cu,h}`
+
+Default behaviour changes:
+- HBM-aware malloc on at **64 MB** threshold. Set `SCILIB_HBM_MALLOC_MB=0` to disable.
+- Above-threshold allocations are aligned to **4 KB** via `posix_memalign`. Override with `SCILIB_HBM_MALLOC_ALIGN=N`.
+
+## Follow-up wins (after the initial HBM-malloc work)
+
+### NVIDIA MPS (~10 % extra, 26.5 s → 23.8 s)
+
+Not a scilib-accel feature — it's an NVIDIA daemon (`nvidia-cuda-mps-control -d`)
+that lets multiple CUDA processes share one context so their kernel launches can
+overlap on the SMs instead of fully serialising at the GPU's single hardware
+context. `quick-test/run2.sh` starts it automatically; `MPS=0 ./run2.sh` opts
+out. Persistence mode must be on and the GPU compute mode must be `Default`.
+
+The MPS active-thread-percentage knob (`CUDA_MPS_ACTIVE_THREAD_PERCENTAGE`) was
+swept across 3, 10, 25, 50, 100 — **100 % (the default) is best** for this
+workload. Any restriction hurts.
+
+### 4 KB alignment for above-threshold allocations (~3.9 %, 23.8 s → 22.8 s)
+
+glibc returns 16-byte-aligned pointers; cuBLAS's vectorised loads issue extra
+memory transactions when the base pointer isn't more strongly aligned. The
+interposer now routes ≥threshold allocations through `posix_memalign` with
+4 KB alignment. Sweep:
+
+| alignment | mean app wall | Δ vs 16 B |
+|---|---|---|
+| 16 B (glibc default) | 23.7 s | — |
+| 256 B   | 22.97 s | −0.73 s |
+| **4 KB** | **22.83 s** | **−0.87 s** ← new default |
+| 64 KB   | 22.92 s | −0.78 s |
+
+Override via `SCILIB_HBM_MALLOC_ALIGN=N` (must be a power of two).
+
+### preallocated cuBLAS workspace — no measurable effect
+
+Adding `cublasSetWorkspace` with a 32 MiB pre-allocated HBM buffer in
+`scilib_nvidia_init` did nothing on this workload (mean ±50 ms). cuBLAS's lazy
+first-call workspace allocation amortises over the ~600 BLAS calls per rank, so
+preallocating is invisible. Reverted; nothing committed.
+
+### user-space THP — not possible without root
+
+`madvise(MADV_HUGEPAGE)` is a no-op because the kernel's THP mode is `never`;
+`MAP_HUGETLB` needs hugepages reserved in `/proc/sys/vm/nr_hugepages`; both
+require sysadmin action. `cudaMalloc` provides hugepage-backed allocations but
+**the resulting memory is GPU-only on Grace-Hopper** (the unified-address-space
+only goes system → GPU, not GPU → system), so it can't be a drop-in
+`malloc` replacement for Fortran-allocated arrays. `cudaMallocManaged` is
+CPU+GPU-accessible but goes through the same managed/tracked code paths that
+we already showed regress on the multi-rank workload (see `SCILIB_MV=2`/`3`).
+**Conclusion: 22.8 s is the floor reachable without sysadmin or app-source
+changes.**
+
+## Final speedup ladder
+
+```
+Pure CPU baseline                                       126.7 s   1.00×
+S3 alone (no HBM-malloc)                                 32.2 s   3.94×
+S3 + HBM-malloc 64 MB (16-byte)                          26.5 s   4.78×
+S3 + HBM-malloc + MPS (16-byte)                          23.8 s   5.33×
+S3 + HBM-malloc + MPS + 4 KB align  (current default)    22.8 s   5.55×
+```
