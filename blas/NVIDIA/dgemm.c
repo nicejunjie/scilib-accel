@@ -17,6 +17,8 @@ void _DGEMM( const char* transa, const char* transb, const int* m, const int* n,
 
     double avgn=cbrt(*m)*cbrt(*n)*cbrt(*k);
 
+    if (*m < 0 || *n < 0 || *k < 0 || *lda < 1 || *ldb < 1 || *ldc < 1) return;
+
     int size_type = sizeof(double);
     size_t sizeA = (transa[0] == 'N'||transa[0] == 'n') ? ((*k) * (*lda)) : ((*m) * (*lda));
     size_t sizeB = (transb[0] == 'N'||transb[0] == 'n') ? ((*n) * (*ldb)) : ((*k) * (*ldb));
