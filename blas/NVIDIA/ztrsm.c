@@ -29,7 +29,7 @@ void _ZTRSM(const char *side, const char *uplo, const char *transa, const char *
     double matrix_mem_size_mb = ((double)sizeA+(double)sizeB) / 1024.0 / 1024.0;
 
     if(avgn<scilib_matrix_offload_size)  {
-         DEBUG2(fprintf(stderr,"cpu: ztrsm args: side=%c, uplo=%c, transa=%c, diag=%c, m=%d, n=%d, alpha=(%.1e, %.1e), lda=%d, ldb=%d\n",
+         DEBUG3(fprintf(stderr,"cpu: ztrsm args: side=%c, uplo=%c, transa=%c, diag=%c, m=%d, n=%d, alpha=(%.1e, %.1e), lda=%d, ldb=%d\n",
            *side, *uplo, *transa, *diag, *m, *n, creal(*(double complex*)alpha), cimag(*(double complex*)alpha), *lda, *ldb));
 
          if (!orig_f) orig_f = scilib_farray[fi].fptr;
@@ -79,20 +79,14 @@ if(scilib_offload_mode == 1){
 
 }
 else {
-    int inumaA, inumaB;
     if (scilib_offload_mode == 3) {
-       inumaA=which_numa(A, sizeA);
-       inumaB=which_numa(B, sizeB);
-       DEBUG3(fprintf(stderr,"a,NUMA location of A,B: %d %d\n", inumaA, inumaB));
-       if ( inumaA == 0 ) move_numa(A, sizeA, scilib_hbm_numa);
-       if ( inumaB == 0 ) move_numa(B, sizeB, scilib_hbm_numa);
-       DEBUG3(fprintf(stderr,"b,NUMA location of A,B: %d %d\n", inumaA, inumaB));
+       move_numa_pair((void*)A, sizeA, B, sizeB, scilib_hbm_numa);
     }
 
     DEBUG1(t1 -= scilib_second());
     CUBLAS_CHECK(cublasZtrsm(scilib_cublas_handle, gpu_side, gpu_uplo, gpu_transa, gpu_diag, *m, *n, alpha, A, *lda, B, *ldb));
     CUDA_CHECK(cudaDeviceSynchronize());
-    DEBUG3(fprintf(stderr,"c,NUMA location of A,B: %d %d\n", inumaA, inumaB));
+    DEBUG3(fprintf(stderr,"c,NUMA location of A,B: %d %d\n", which_numa(A,sizeA), which_numa(B,sizeB)));
     DEBUG1(t1 += scilib_second());
 }
 

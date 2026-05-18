@@ -29,7 +29,7 @@ void _CSYR2K(const char *uplo, const char *trans, const int *n, const int *k, co
     float beta_abs = cuCabsf(*((cuFloatComplex*) beta));
 
     if(avgn < scilib_matrix_offload_size) {
-        DEBUG2(fprintf(stderr,"cpu: csyr2k args: uplo=%c, trans=%c, n=%d, k=%d, alpha=(%.1e, %.1e), lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
+        DEBUG3(fprintf(stderr,"cpu: csyr2k args: uplo=%c, trans=%c, n=%d, k=%d, alpha=(%.1e, %.1e), lda=%d, ldb=%d, beta=(%.1e, %.1e), ldc=%d\n",
           *uplo, *trans, *n, *k, crealf(*(float complex*)alpha), cimagf(*(float complex*)alpha),
           *lda, *ldb, crealf(*(float complex*)beta), cimagf(*(float complex*)beta), *ldc));
 

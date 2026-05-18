@@ -29,7 +29,7 @@ void _SGEMM( const char* transa, const char* transb, const int* m, const int* n,
     int ic = (beta_abs > 1.0e-8) ? 2:1;
 
     if(avgn<scilib_matrix_offload_size)  {
-        DEBUG2(fprintf(stderr,"cpu: sgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=%.1f, lda=%d, ldb=%d, beta=%.1f, ldc=%d\n",
+        DEBUG3(fprintf(stderr,"cpu: sgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=%.1e, lda=%d, ldb=%d, beta=%.1e, ldc=%d\n",
            *transa, *transb, *m, *n, *k, *alpha, *lda, *ldb, *beta, *ldc));
 
          if (!orig_f) orig_f = scilib_farray[fi].fptr;
@@ -47,7 +47,7 @@ void _SGEMM( const char* transa, const char* transb, const int* m, const int* n,
 
          return;
     }
-    DEBUG2(fprintf(stderr,"gpu: sgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=%.1f, lda=%d, ldb=%d, beta=%.1f, ldc=%d\n",
+    DEBUG2(fprintf(stderr,"gpu: sgemm args: transa=%c, transb=%c, m=%d, n=%d, k=%d, alpha=%.1e, lda=%d, ldb=%d, beta=%.1e, ldc=%d\n",
         *transa, *transb, *m, *n, *k, *alpha, *lda, *ldb, *beta, *ldc));
 
     cublasOperation_t transA = (transa[0] == 'N' || transa[0] == 'n') ? CUBLAS_OP_N : CUBLAS_OP_T;

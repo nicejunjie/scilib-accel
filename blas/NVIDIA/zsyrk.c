@@ -27,7 +27,7 @@ void _ZSYRK(const char *uplo, const char *trans, const int *n, const int *k, con
     double beta_abs = cuCabs(*((cuDoubleComplex*) beta));
 
     if(avgn < scilib_matrix_offload_size) {
-        DEBUG2(fprintf(stderr,"cpu: zsyrk args: uplo=%c, trans=%c, n=%d, k=%d, alpha=(%.1e, %.1e), \
+        DEBUG3(fprintf(stderr,"cpu: zsyrk args: uplo=%c, trans=%c, n=%d, k=%d, alpha=(%.1e, %.1e), \
           lda=%d, beta=(%.1e, %.1e), ldc=%d\n",
           *uplo, *trans, *n, *k, creal(*(double complex*)alpha), cimag(*(double complex*)alpha),
           *lda, creal(*(double complex*)beta), cimag(*(double complex*)beta), *ldc));

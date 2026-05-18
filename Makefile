@@ -36,16 +36,19 @@ FFLAGS = -O2 -mp -g -mcmodel=large #$(MEMMODEL)
 
 BLAS_SRCS = $(wildcard blas/$(GPUARCH)/*.c)
 UTIL_SRCS = $(wildcard utils/*.c)
+UTIL_CU_SRCS = utils/gpu_migrate.cu
 COMMON_SRCS = init.c nvidia.c $(UTIL_SRCS) $(BLAS_SRCS)
 #COMMON_SRCS = init.c nvidia.c utils.c blas/$(GPUARCH)/sgemm.c blas/$(GPUARCH)/dgemm.c blas/$(GPUARCH)/cgemm.c blas/$(GPUARCH)/zgemm.c 
 
+UTIL_CU_OBJ = $(UTIL_CU_SRCS:.cu=.o)
+
 SRCS1 = main-dbi.c
 SRCS1ALL = $(COMMON_SRCS) $(SRCS1)
-OBJ1 = $(patsubst %.c,%-dbi.o,$(COMMON_SRCS)) $(SRCS1:.c=.o)
+OBJ1 = $(patsubst %.c,%-dbi.o,$(COMMON_SRCS)) $(SRCS1:.c=.o) $(UTIL_CU_OBJ)
 
 SRCS2 = main-dl.c
 SRCS2ALL = $(COMMON_SRCS) $(SRCS2)
-OBJ2 = $(patsubst %.c,%-dl.o,$(COMMON_SRCS))  $(SRCS2:.c=.o)
+OBJ2 = $(patsubst %.c,%-dl.o,$(COMMON_SRCS))  $(SRCS2:.c=.o) $(UTIL_CU_OBJ)
 
 
 
@@ -68,6 +71,9 @@ $(TARGET2): $(OBJ2)
 
 %-dl.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
+
+%.o: %.cu
+	nvcc -O2 -c $< -o $@ -Xcompiler -fPIC
 
 # ------------------------- setup frida for DBI --------------------------
 
@@ -123,7 +129,7 @@ run2: test_dgemm.x $(TARGET2)
 
 .PHONY: clean
 clean:
-	rm -rf $(OBJ1) $(OBJ2) $(FRIDA_DIR)
+	rm -rf $(OBJ1) $(OBJ2) $(UTIL_CU_OBJ) $(FRIDA_DIR)
 
 .PHONY: veryclean
 veryclean:

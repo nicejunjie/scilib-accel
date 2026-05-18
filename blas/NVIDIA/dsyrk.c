@@ -27,7 +27,7 @@ void _DSYRK(const char *uplo, const char *trans, const int *n, const int *k, con
     double beta_abs = fabs(*beta);
 
     if(avgn < scilib_matrix_offload_size) {
-        DEBUG2(fprintf(stderr,"cpu: dsyrk args: uplo=%c, trans=%c, n=%d, k=%d, alpha=%.1e, lda=%d, beta=%.1e, ldc=%d\n",
+        DEBUG3(fprintf(stderr,"cpu: dsyrk args: uplo=%c, trans=%c, n=%d, k=%d, alpha=%.1e, lda=%d, beta=%.1e, ldc=%d\n",
             *uplo, *trans, *n, *k, *alpha, *lda, *beta, *ldc));
 
         if (!orig_f) orig_f = scilib_farray[fi].fptr;

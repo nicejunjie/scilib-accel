@@ -25,6 +25,7 @@ int which_numa2(void *var);
  * @return void
 */
 void move_numa(void *ptr, unsigned long size, int target_node);
+void move_numa_pair(void *ptr1, size_t size1, void *ptr2, size_t size2, int target_node);
 
 
 int check_MPI();

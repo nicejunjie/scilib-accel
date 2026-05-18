@@ -23,6 +23,8 @@ These tools are never practically useful.
 Recognizing common use patterns of BLAS calls, SCILIB-accel introduces a first-touch type of data management strategy (S3 below) optimized for NVIDIA Grace-Hopper,
  data movement in many practical use cases is minimum. 
 
+On top of that, an **HBM-aware `malloc` interposer** (on by default, 64 MB threshold) places large allocations on HBM at allocation time, so BLAS wrappers don't have to migrate them on the first call. On MuST/LSMS this is an additional ~17% speedup over the previous S3 default (32.4 s → 26.8 s end-to-end). Toggle with `SCILIB_HBM_MALLOC_MB` (see below).
+
 To my knowledge, this is the first tool that allows  performant BLAS auto-offload on GPU for real HPC applications. 
 
 ## Compile: 
@@ -42,8 +44,9 @@ or
 `LD_PRELOAD=$PATH_TO_LIB/scilib-dl.so`   
 
 Optionally use the following environmental variables to fine-tune: <br />
-- `SCILIB_DEBUG=[0|1|2|3]` : 0 - default, no printouts, 1 - print timing, 2 -- print BLAS input arguments, 3 -- for developer diagnosis. <br />
+- `SCILIB_DEBUG=[0|1|2|3]` : 0 - default, no printouts; 1 - per-routine timing summary at exit; 2 - GPU-offload BLAS arguments and per-call migration timings; 3 - developer diagnosis (also prints CPU-path BLAS arguments, NUMA-location triples, and per-call timings). <br />
 - `SCILIB_MATRIX_OFFLOAD_SIZE=[size]` : size=(mnk)^(1/3), default is 500, the size above which GPU offload will occur.  <br />
+- `SCILIB_HBM_MALLOC_MB=[N]` : HBM-aware `malloc` interposer; allocations >= N MB are `mbind`-ed to HBM at allocation time. Default: on at **64 MB** threshold. Set to `0` to disable (allocations go through glibc unchanged). <br />
 - `SCILIB_THPOFF=[0|1]` : 0 - default, use system default THP setting, 1 -- turn off THP.  <br />
 - `SCILIB_OFFLOAD_MODE=[1|2|3]`: different data movement strategies.  <br/>
   - S1: perform cudaMemCpy to/from GPU for every cuBLAS call;  (available on any GPU)  
@@ -52,6 +55,7 @@ Optionally use the following environmental variables to fine-tune: <br />
         This policy is very similiar to OpenMP First Touch, with the assumption that the CPU access of the migrated matrices on HBM
          are relatively trivial comparing to the amount of GPU local access. 
         (Only available on Grace-Hopper)
+- `SCILIB_MV=[0..6]` : (advanced/diagnostic) selects the page-migration backend inside `move_numa`. Default `0` = `move_pages` syscall (the recommended setting). Other values (1=mbind, 2=cudaMemPrefetchAsync, 3=advise+prefetch, 4=no-op, 5=GPU page-touch, 6=VMA-wide mbind) are kept for A/B testing — none beats `0` on the real workload. See `NOTES_HBM_MALLOC.md` for the full comparison.
 
 ## Known issues: 
 For using openmpi in NVHPC, bugs from the UCX side were observed and hcoll should be disabled. <br /> 
@@ -99,6 +103,18 @@ This workload can perfectly scale from 25 nodes to 150 nodes, GH vs GG speedup 2
 | 150 GH GPU nodes, SCILIB-Accel S1 | 435s | 152s+17s | ~100s | - |  
 | 150 GH GPU nodes, SCILIB-Accel S3 | 357s | 184s+35s | 3.3s | matrix reuse 780 |  
 
+
+**MuST single-node, HBM-aware malloc on/off**
+Same MuST code, smaller test case: LSMS CoCrFeMnNi on one Grace-Hopper node, 28 MPI ranks × 2 OpenMP threads, 5-rep mean.
+| Method | App Total Runtime |
+|--------|-------------------|
+| Pure CPU baseline (28×2, no offload)        | 126.7 s |
+| SCILIB-Accel S3, `SCILIB_HBM_MALLOC_MB=0`   | 32.2 s  |
+| SCILIB-Accel S3, **default (64 MB)**        | **26.5 s** |
+
+The HBM-aware-malloc default brings the GPU-offload speedup over pure CPU from 3.9× to 4.8×. Run with `quick-test/run2.sh`.
+
+A fast proxy benchmark under `proxy/` reproduces the same multi-rank pattern in ~10 s instead of ~30 s and is useful for iterating on data-movement changes before validating on `run2.sh`. See `proxy/README.md` and `NOTES_HBM_MALLOC.md`.
 
 **HPL (binary from NVIDIA's HPC container)**
 | HPL Method | Rmax (TFlops) | t_dgemm (s) | t_data (s) | Notes |

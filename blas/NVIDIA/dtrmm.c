@@ -29,7 +29,7 @@ void _DTRMM(const char *side, const char *uplo, const char *transa, const char *
     double matrix_mem_size_mb = ((double)sizeA+(double)sizeB) / 1024.0 / 1024.0;
 
     if(avgn<scilib_matrix_offload_size)  {
-         DEBUG2(fprintf(stderr,"cpu: dtrmm args: side=%c, uplo=%c, transa=%c, diag=%c, m=%d, n=%d, alpha=%.1e, lda=%d, ldb=%d\n",
+         DEBUG3(fprintf(stderr,"cpu: dtrmm args: side=%c, uplo=%c, transa=%c, diag=%c, m=%d, n=%d, alpha=%.1e, lda=%d, ldb=%d\n",
            *side, *uplo, *transa, *diag, *m, *n, *alpha, *lda, *ldb));
 
          if (!orig_f) orig_f = scilib_farray[fi].fptr;

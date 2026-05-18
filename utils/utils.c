@@ -8,6 +8,9 @@
 #include <numaif.h>
 #include <numa.h>
 #include <sys/mman.h>
+#include <errno.h>
+#include <pthread.h>
+#include <omp.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <limits.h>
@@ -46,7 +49,36 @@ double scilib_second_() {return scilib_second();}
 double scilib_second2_() {return scilib_second2();}
 
 
+// --- Pointer cache for tracking already-migrated regions ---
+#define MIGRATE_CACHE_SIZE 4096
+static struct { void *ptr; size_t size; } migrate_cache[MIGRATE_CACHE_SIZE];
+static int migrate_cache_count = 0;
+
+static int is_migrated(void *ptr, size_t size) {
+    for (int i = 0; i < migrate_cache_count; i++) {
+        if (migrate_cache[i].ptr == ptr && migrate_cache[i].size >= size)
+            return 1;
+    }
+    return 0;
+}
+
+static void add_to_migrate_cache(void *ptr, size_t size) {
+    for (int i = 0; i < migrate_cache_count; i++) {
+        if (migrate_cache[i].ptr == ptr) {
+            if (size > migrate_cache[i].size) migrate_cache[i].size = size;
+            return;
+        }
+    }
+    if (migrate_cache_count < MIGRATE_CACHE_SIZE) {
+        migrate_cache[migrate_cache_count].ptr = ptr;
+        migrate_cache[migrate_cache_count].size = size;
+        migrate_cache_count++;
+    }
+}
+
 int which_numa(void *ptr, size_t bytes) {
+    if (is_migrated(ptr, bytes)) return 1;
+
     int ret_code;
     int status[3];
     void *ptr_to_check[3];
@@ -59,110 +91,221 @@ int which_numa(void *ptr, size_t bytes) {
     ptr_to_check[1] = char_ptr + bytes / 2;
     ptr_to_check[2] = char_ptr + bytes - 1;
 
-    if ( bytes == 0 ) n = 1 ;  
-    else if ( bytes < 3 ) n = bytes; 
+    if ( bytes == 0 ) n = 1 ;
+    else if ( bytes < 3 ) n = bytes;
 
     ret_code = move_pages(0 /* self memory */, n, ptr_to_check, NULL, status, 0);
-/*
-#define MOVE_PAGES 279  // syscall number for move_pages
-    ret_code = syscall(MOVE_PAGES, 0, 3, ptr_to_check, NULL, status, 0);
-*/
+
     if (status[0] == 0 || status[1] == 0 || status[2] == 0) return 0;
     return 1;
 }
 
 #include "nvidia.h"
-void move_numa2(void *ptr, size_t size, int target_node) {
-    double alpha = 1.0;
-    size_t num_elements = size / sizeof(double);
-    for (int i = 0; i < 1; i++) {
-        CUBLAS_CHECK(cublasDscal(scilib_cublas_handle, num_elements, &alpha, (double*)ptr, 1));
-        cudaStreamSynchronize(scilib_cuda_stream);
+#include "gpu_migrate.h"
+
+// One-time page size lookup (cached). getpagesize() is a syscall on some libcs.
+static int page_size_cached(void) {
+    static int ps = 0;
+    if (!ps) ps = getpagesize();
+    return ps;
+}
+
+// Align [ptr, ptr+size) outward to whole pages.
+static void page_align(const void *ptr, size_t size,
+                       char **aligned_ptr_out, size_t *aligned_size_out) {
+    int ps = page_size_cached();
+    char *aligned_ptr = (char *)((unsigned long)ptr & ~(unsigned long)(ps - 1));
+    size_t aligned_size = (size_t)((char *)ptr + size - aligned_ptr);
+    aligned_size = (aligned_size + ps - 1) & ~(size_t)(ps - 1);
+    *aligned_ptr_out = aligned_ptr;
+    *aligned_size_out = aligned_size;
+}
+
+// mbind a single contiguous range, optionally split into N parallel chunks
+// when there are enough pages to make threading worthwhile.
+static void mbind_parallel_chunks(char *aligned_ptr, size_t aligned_size,
+                                  int target_node, int flags) {
+    int ps = page_size_cached();
+    unsigned long nodemask = 1UL << target_node;
+    size_t num_pages = aligned_size / ps;
+    int nthreads = omp_get_max_threads();
+    if (nthreads > 1 && aligned_size >= (size_t)ps * nthreads) {
+        #pragma omp parallel
+        {
+            int tid = omp_get_thread_num();
+            int nt  = omp_get_num_threads();
+            size_t ppt = num_pages / nt;
+            size_t sp = tid * ppt;
+            size_t ep = (tid == nt - 1) ? num_pages : sp + ppt;
+            size_t off = sp * ps;
+            size_t cs  = (ep - sp) * (size_t)ps;
+            if (off + cs > aligned_size) cs = aligned_size - off;
+            if (cs > 0)
+                mbind(aligned_ptr + off, cs, MPOL_BIND, &nodemask,
+                      sizeof(nodemask) * 8, flags);
+        }
+    } else {
+        mbind(aligned_ptr, aligned_size, MPOL_BIND, &nodemask,
+              sizeof(nodemask) * 8, flags);
     }
-    return;
+}
+
+// Legacy: same body as SCILIB_MV=1. Retained because utils/move_numa.h
+// declares it; no active callers in the BLAS wrappers.
+void move_numa2(void *ptr, size_t size, int target_node) {
+    double tnuma = scilib_second();
+    char *aligned_ptr;
+    size_t aligned_size;
+    page_align(ptr, size, &aligned_ptr, &aligned_size);
+    mbind_parallel_chunks(aligned_ptr, aligned_size, target_node,
+                          MPOL_MF_MOVE | MPOL_MF_STRICT);
+    tnuma = scilib_second() - tnuma;
+    DEBUG2(fprintf(stderr, "move_mbind time %15.6f of %lu pages\n",
+                   tnuma, aligned_size / page_size_cached()));
+}
+
+static int move_numa_call_count = 0;
+static size_t move_numa_total_bytes = 0;
+
+void move_numa_print_stats() {
+    fprintf(stderr, "    move_numa stats: %d calls, %.1f MB total\n",
+            move_numa_call_count, (double)move_numa_total_bytes / 1024.0 / 1024.0);
+}
+
+// SCILIB_MV selects the move_numa implementation:
+//   0=move_pages, 1=mbind, 2=cudaMemPrefetchAsync, 3=cudaMemAdvise+prefetch,
+//   4=no-op, 5=GPU page-touch, 6=VMA-wide mbind on first touch.
+// None of 1..6 beat 0 on the real (multi-rank) workload. The switch exists
+// for A/B testing — see proxy/README.md and NOTES_HBM_MALLOC.md.
+
+#define VMA_CACHE_SIZE 256
+static struct { unsigned long start, end; } vma_cache[VMA_CACHE_SIZE];
+static int vma_cache_count = 0;
+
+static int vma_already_done(const void *ptr) {
+    unsigned long p = (unsigned long)ptr;
+    for (int i = 0; i < vma_cache_count; i++)
+        if (p >= vma_cache[i].start && p < vma_cache[i].end) return 1;
+    return 0;
+}
+
+static int find_vma(const void *ptr, unsigned long *vs, unsigned long *ve) {
+    FILE *f = fopen("/proc/self/maps", "r");
+    if (!f) return 0;
+    char line[512];
+    unsigned long t = (unsigned long)ptr;
+    int found = 0;
+    while (fgets(line, sizeof line, f)) {
+        unsigned long s, e;
+        if (sscanf(line, "%lx-%lx", &s, &e) == 2 && t >= s && t < e) {
+            *vs = s; *ve = e; found = 1; break;
+        }
+    }
+    fclose(f);
+    return found;
+}
+
+static void cache_vma(unsigned long s, unsigned long e) {
+    if (vma_cache_count < VMA_CACHE_SIZE) {
+        vma_cache[vma_cache_count].start = s;
+        vma_cache[vma_cache_count].end = e;
+        vma_cache_count++;
+    }
+}
+
+static int mv_variant(void) {
+    static int v = -1;
+    if (v < 0) {
+        const char *e = getenv("SCILIB_MV");
+        v = e ? atoi(e) : 0;
+    }
+    return v;
 }
 
 void move_numa(void *ptr, size_t size, int target_node) {
-// size in Bytes
-    //printf("size in move_numa=%d, array size=%d\n",size, size/8);
-    double tnuma=scilib_second();
-    int PAGE_SIZE = getpagesize();
-    int rc=0;
-    size_t num_pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
-    size_t num_pages_plus = num_pages + 1; //account for the last page
-    int *status = malloc(num_pages_plus*sizeof(int));
-    int *nodes = malloc(num_pages_plus*sizeof(int));
-    void **page_addrs = malloc(num_pages_plus * sizeof(void *));
+    move_numa_call_count++;
+    move_numa_total_bytes += size;
+    double tnuma = scilib_second();
+    int ps = page_size_cached();
 
-    char * char_ptr = ptr; 
-    // Populate the array with page addresses
-    #pragma omp parallel for
-    for (size_t i = 0; i < num_pages; i++) {
-        page_addrs[i] = char_ptr + i * PAGE_SIZE ;
-        nodes[i]=target_node;
-        status[i]=-1;
-    }
-      
-// check the last byte 
-    page_addrs[num_pages] = char_ptr + size -1 ;
-    nodes[num_pages] = target_node;
-    status[num_pages] = -1;
-      
+    char *aligned_ptr;
+    size_t aligned_size;
+    page_align(ptr, size, &aligned_ptr, &aligned_size);
+    size_t num_pages = aligned_size / ps;
 
-#define MOVE_BULK   //OMP parallelized version is slower (230s->250s) due to too many concurrencies when all cores are used. 
-#ifdef MOVE_BULK
-    rc=move_pages(0, num_pages_plus, page_addrs, nodes, status, MPOL_MF_MOVE);
-    if(rc!=0) {
-        if(rc > 0 && scilib_debug >=3) {
-                fprintf(stderr, "warning: %d pages not moved\n", rc); 
-                for (int i = 0; i < num_pages; i++) 
-                   if (status[i] < 0) {  // Check if there's an error for this page
-                       fprintf(stderr, "Page %d (at %d) not moved, error: %d %s\n", i, which_numa(page_addrs[i],0),status[i],strerror(-status[i]));
-                       exit(-1);
-                   }
+    int v = mv_variant();
+    const char *tag = "move_page ";
+
+    if (v == 0) {
+        // move_pages syscall (state-of-the-art baseline on the real workload)
+        size_t num_pages_plus = num_pages + 1;
+        int *status = malloc(num_pages_plus * sizeof(int));
+        int *nodes  = malloc(num_pages_plus * sizeof(int));
+        void **page_addrs = malloc(num_pages_plus * sizeof(void *));
+        char *char_ptr = ptr;
+        #pragma omp parallel for
+        for (size_t i = 0; i < num_pages; i++) {
+            page_addrs[i] = char_ptr + i * ps;
+            nodes[i] = target_node; status[i] = -1;
         }
-        if(rc < 0) {fprintf(stderr, "error: page migration failed\n"); exit(-1);} 
-    }
-#else
-    #pragma omp parallel   //need to double check this part
-    {
-        int thread_rc = 0;
-        #pragma omp for
-        for (size_t i = 0; i < num_pages_plus; i += omp_get_num_threads()) {
-            size_t start = i;
-            size_t end = ((i + omp_get_num_threads()) < num_pages_plus) ? (i + omp_get_num_threads()) : num_pages_plus;
-            thread_rc = move_pages(0 , end - start, &page_addrs[start], &nodes[start], &status[start], 0);
-            if (thread_rc != 0) {
-                #pragma omp critical
-                {
-                  //  if (thread_rc > 0) fprintf(stderr, "warning: %d pages not moved\n", thread_rc);
-                    if (thread_rc < 0) {
-                        fprintf(stderr, "error: page migration failed\n");
-                        exit(-1);
-                    }
-                }
+        page_addrs[num_pages] = char_ptr + size - 1;
+        nodes[num_pages] = target_node; status[num_pages] = -1;
+        int rc = move_pages(0, num_pages_plus, page_addrs, nodes, status, MPOL_MF_MOVE);
+        if (rc < 0) { fprintf(stderr, "move_pages failed\n"); exit(-1); }
+        free(page_addrs); free(nodes); free(status);
+    } else if (v == 1) {
+        mbind_parallel_chunks(aligned_ptr, aligned_size, target_node,
+                              MPOL_MF_MOVE | MPOL_MF_STRICT);
+        tag = "move_mbind";
+    } else if (v == 2 || v == 3) {
+        int dev = 0;
+        cudaGetDevice(&dev);
+        if (v == 3)
+            cudaMemAdvise(aligned_ptr, aligned_size,
+                          cudaMemAdviseSetPreferredLocation, dev);
+        cudaMemPrefetchAsync(aligned_ptr, aligned_size, dev, scilib_cuda_stream);
+        cudaStreamSynchronize(scilib_cuda_stream);
+        tag = (v == 2) ? "move_pref " : "move_adpf ";
+    } else if (v == 4) {
+        tag = "move_none ";
+    } else if (v == 5) {
+        gpu_migrate(aligned_ptr, aligned_size, scilib_cuda_stream);
+        tag = "move_gput ";
+    } else if (v == 6) {
+        // VMA-wide mbind on first touch. Subsequent allocations in the same
+        // VMA inherit MPOL_BIND so faults land on the target node without an
+        // explicit migration.
+        if (vma_already_done(ptr)) {
+            tag = "vma cache ";
+        } else {
+            unsigned long vs, ve;
+            unsigned long nodemask = 1UL << target_node;
+            if (find_vma(ptr, &vs, &ve)) {
+                mbind((void*)vs, ve - vs, MPOL_BIND, &nodemask,
+                      sizeof(nodemask) * 8, MPOL_MF_MOVE);
+                cache_vma(vs, ve);
+                DEBUG2(fprintf(stderr, "  vma-mbind %lx-%lx (%.1f MB)\n",
+                               vs, ve, (ve - vs) / 1024.0 / 1024.0));
+                tag = "vma mbind ";
+            } else {
+                mbind(aligned_ptr, aligned_size, MPOL_BIND, &nodemask,
+                      sizeof(nodemask) * 8, MPOL_MF_MOVE);
+                tag = "fb mbind  ";
             }
         }
-        #pragma omp critical
-        {
-            rc += thread_rc;
-        }
     }
-#endif
 
-    free(page_addrs);
-    free(nodes);  
-    free(status);
+    add_to_migrate_cache(ptr, size);
+    tnuma = scilib_second() - tnuma;
+    DEBUG2(fprintf(stderr, "%s time %15.6f of %lu pages\n", tag, tnuma, num_pages));
+}
 
-    tnuma=scilib_second()-tnuma;
-    //printf("element numa\n");
-    //for (int i =0; i<size; i++) printf("%d %d\n",i,which_numa(ptr+i,1));
-
-    if ( rc > 0) 
-       DEBUG2(fprintf(stderr,"move_page time %15.6f of %lu pages (%d not moved)\n", tnuma, num_pages, rc));
-    else
-       DEBUG2(fprintf(stderr,"move_page time %15.6f of %lu pages\n", tnuma, num_pages));
-    return;
+// Migrate two regions, skipping any already on target node
+void move_numa_pair(void *ptr1, size_t size1, void *ptr2, size_t size2, int target_node) {
+    if (!is_migrated(ptr1, size1))
+        move_numa(ptr1, size1, target_node);
+    if (!is_migrated(ptr2, size2))
+        move_numa(ptr2, size2, target_node);
 }
 
 
@@ -327,59 +470,109 @@ int in_str(const char* s1, char** s2) {
 
 
 
-/*  Experimental  */
-
 #include <errno.h>
-#include <unistd.h>  // For sysconf
-#include <dlfcn.h> 
-#include <fcntl.h>
+#include <dlfcn.h>
 
 
+// ----- HBM-aware malloc interposer -----------------------------------------
+// Allocations >= threshold MB get mbind'd to the HBM NUMA node right after
+// allocation, so the BLAS wrappers never have to migrate them. Below the
+// threshold, allocations pass through unchanged so CPU-side small objects
+// keep their DRAM locality.
+//
+// Toggle via env SCILIB_HBM_MALLOC_MB:
+//     unset (default) : on, 64 MB threshold (~17% faster on MuST/LSMS)
+//     0               : off (still interposed but no mbind)
+//     N>0             : on, N MB threshold
 
-void* xmalloc(size_t size) {
-    static void* (*real_malloc)() = NULL; 
-    void *ptr = NULL;
-    if (!real_malloc)  real_malloc = dlsym(RTLD_NEXT, "malloc") ;
-    ptr = real_malloc(size);
+#define HBM_MAL_DEFAULT_MB  64
+#define HBM_BOOT_BUF_SIZE   65536
+static size_t hbm_mal_thresh = (size_t)HBM_MAL_DEFAULT_MB * 1024 * 1024;
+static int    hbm_mal_inited = 0;
+static void *(*real_malloc_fn)(size_t) = NULL;
+static void *(*real_calloc_fn)(size_t, size_t) = NULL;
+static void *(*real_realloc_fn)(void*, size_t) = NULL;
+static void  (*real_free_fn)(void*) = NULL;
+static __thread int hbm_mal_in_dlsym = 0;
+static char  hbm_boot_buf[HBM_BOOT_BUF_SIZE];
+static size_t hbm_boot_off = 0;
 
-    // Apply madvise to the allocated memory region
-    if (ptr != NULL && size >= 65536) { 
-        if (madvise(ptr, size, MADV_HUGEPAGE) != 0) {
-            perror("madvise");
-        }
+static void hbm_mal_init(void) {
+    if (hbm_mal_inited) return;
+    hbm_mal_in_dlsym = 1;
+    real_malloc_fn  = dlsym(RTLD_NEXT, "malloc");
+    real_calloc_fn  = dlsym(RTLD_NEXT, "calloc");
+    real_realloc_fn = dlsym(RTLD_NEXT, "realloc");
+    real_free_fn    = dlsym(RTLD_NEXT, "free");
+    hbm_mal_in_dlsym = 0;
+    const char *e = getenv("SCILIB_HBM_MALLOC_MB");
+    if (e) {
+        long v = atol(e);
+        if (v >= 0) hbm_mal_thresh = (size_t)v * 1024 * 1024;
     }
-    return ptr;
+    hbm_mal_inited = 1;
 }
 
+static void hbm_bind_range(void *p, size_t size) {
+    char *aligned_ptr;
+    size_t aligned_size;
+    page_align(p, size, &aligned_ptr, &aligned_size);
+    unsigned long nm = 1UL << scilib_hbm_numa;
+    mbind(aligned_ptr, aligned_size, MPOL_BIND, &nm, sizeof(nm) * 8, MPOL_MF_MOVE);
+}
 
-//size_t pagesize = sysconf(_SC_PAGESIZE);
-#include <stdint.h>
-#define S_G 1024ULL*1024*1024
-#define S_M 1024ULL*1024
-#define S_K 1024ULL
-#define NALIGN S_K*64
-#define BAR S_K*64
-size_t scilib_align=NALIGN;
-size_t scilib_bar=BAR;
-void* ymalloc(size_t size) {
-    static void* (*real_malloc)() = NULL; 
-    void *ptr = NULL;
-    if (!real_malloc) {
-        real_malloc = dlsym(RTLD_NEXT, "malloc") ;
-/*
-        fprintf(stderr, "Size of size_t: %zu bits\n", sizeof(size_t) * CHAR_BIT);
-        fprintf(stderr, "Maximum value of size_t: %zu\n", SIZE_MAX);
-        fprintf(stderr, "value of bar %zu  \n", scilib_bar);
-        fprintf(stderr, "alignment to %zu  \n", scilib_align);
-*/
-    } 
+static int hbm_is_boot(const void *p) {
+    return p >= (void*)hbm_boot_buf && p < (void*)(hbm_boot_buf + sizeof(hbm_boot_buf));
+}
 
-    if ( scilib_skip_flag || size < scilib_bar) return real_malloc(size);
+void *malloc(size_t size) {
+    if (hbm_mal_in_dlsym) {
+        size_t a = (size + 15) & ~(size_t)15;
+        if (hbm_boot_off + a > sizeof(hbm_boot_buf)) return NULL;
+        void *p = hbm_boot_buf + hbm_boot_off;
+        hbm_boot_off += a;
+        return p;
+    }
+    if (!hbm_mal_inited) hbm_mal_init();
+    void *p = real_malloc_fn(size);
+    if (p && hbm_mal_thresh && size >= hbm_mal_thresh) hbm_bind_range(p, size);
+    return p;
+}
 
-    //fprintf(stderr, "posix_memalign %zu < %zu ? %s\n",   size, scilib_bar, (size < scilib_bar) ? "true" : "false");
+void *calloc(size_t n, size_t size) {
+    if (hbm_mal_in_dlsym) {
+        size_t total = n * size;
+        size_t a = (total + 15) & ~(size_t)15;
+        if (hbm_boot_off + a > sizeof(hbm_boot_buf)) return NULL;
+        void *p = hbm_boot_buf + hbm_boot_off;
+        hbm_boot_off += a;
+        memset(p, 0, total);
+        return p;
+    }
+    if (!hbm_mal_inited) hbm_mal_init();
+    void *p = real_calloc_fn(n, size);
+    size_t total = n * size;
+    if (p && hbm_mal_thresh && total >= hbm_mal_thresh) hbm_bind_range(p, total);
+    return p;
+}
 
-    size = ( size/scilib_align + 1 ) * scilib_align;
-    int result = posix_memalign(&ptr, scilib_align, size);
-    return ptr;
+void *realloc(void *ptr, size_t size) {
+    if (!hbm_mal_inited) hbm_mal_init();
+    if (hbm_is_boot(ptr)) {
+        // bootstrap chunks aren't tracked — just give a fresh real alloc
+        void *p = real_malloc_fn(size);
+        if (p && hbm_mal_thresh && size >= hbm_mal_thresh) hbm_bind_range(p, size);
+        return p;
+    }
+    void *p = real_realloc_fn(ptr, size);
+    if (p && hbm_mal_thresh && size >= hbm_mal_thresh) hbm_bind_range(p, size);
+    return p;
+}
+
+void free(void *ptr) {
+    if (!ptr) return;
+    if (hbm_is_boot(ptr)) return;          // leak the tiny bootstrap chunks
+    if (!hbm_mal_inited) hbm_mal_init();
+    real_free_fn(ptr);
 }
 

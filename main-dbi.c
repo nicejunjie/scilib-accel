@@ -92,6 +92,9 @@ void scilib_elf_fini(){
        fprintf(stderr, "%10s time: total= %15.6f, compute= %15.6f, other= %15.6f\n", scilib_farray[i].f0, scilib_farray[i].t0, scilib_farray[i].t1, scilib_farray[i].t0-scilib_farray[i].t1) ;
   }
 
+  extern void move_numa_print_stats();
+  move_numa_print_stats();
+
   fflush(stderr);
   fflush(stdout);
   
