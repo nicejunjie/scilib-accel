@@ -104,15 +104,20 @@ This workload can perfectly scale from 25 nodes to 150 nodes, GH vs GG speedup 2
 | 150 GH GPU nodes, SCILIB-Accel S3 | 357s | 184s+35s | 3.3s | matrix reuse 780 |  
 
 
-**MuST single-node, HBM-aware malloc on/off**
-Same MuST code, smaller test case: LSMS CoCrFeMnNi on one Grace-Hopper node, 28 MPI ranks × 2 OpenMP threads, 5-rep mean.
-| Method | App Total Runtime |
-|--------|-------------------|
-| Pure CPU baseline (28×2, no offload)        | 126.7 s |
-| SCILIB-Accel S3, `SCILIB_HBM_MALLOC_MB=0`   | 32.2 s  |
-| SCILIB-Accel S3, **default (64 MB)**        | **26.5 s** |
+**MuST single-node, HBM-aware malloc + MPS on/off**
+Same MuST code, smaller test case: LSMS CoCrFeMnNi on one Grace-Hopper node, 28 MPI ranks × 2 OpenMP threads, 3+ rep mean.
+| Method                                                       | App Total Runtime | Speedup vs CPU |
+|--------------------------------------------------------------|-------------------|----------------|
+| Pure CPU baseline (28×2, no offload)                         | 126.7 s           | 1.00×          |
+| SCILIB-Accel S3, `SCILIB_HBM_MALLOC_MB=0`, no MPS             | 32.2 s            | 3.94×          |
+| SCILIB-Accel S3, HBM-malloc default (64 MB), no MPS           | 26.5 s            | 4.78×          |
+| SCILIB-Accel S3, HBM-malloc default + **NVIDIA MPS**          | **23.8 s**        | **5.33×**      |
 
-The HBM-aware-malloc default brings the GPU-offload speedup over pure CPU from 3.9× to 4.8×. Run with `quick-test/run2.sh`.
+Two stacked wins:
+- The HBM-aware-malloc default places large allocations on HBM at `malloc` time, so BLAS wrappers skip the per-call migration.
+- Enabling **NVIDIA MPS** (Multi-Process Service) lets the 28 ranks share a CUDA context so their cuBLAS launches can overlap on the SMs instead of fully serialising.
+
+MPS is not a scilib-accel feature; it's an NVIDIA daemon (`nvidia-cuda-mps-control -d`) that's recommended for any many-rank-per-GPU workload. Persistence mode must be enabled and the GPU compute mode must be `Default`. `quick-test/run2.sh` starts MPS by default; set `MPS=0 ./run2.sh` to disable it.
 
 A fast proxy benchmark under `proxy/` reproduces the same multi-rank pattern in ~10 s instead of ~30 s and is useful for iterating on data-movement changes before validating on `run2.sh`. See `proxy/README.md` and `NOTES_HBM_MALLOC.md`.
 
