@@ -47,6 +47,7 @@ Optionally use the following environmental variables to fine-tune: <br />
 - `SCILIB_DEBUG=[0|1|2|3]` : 0 - default, no printouts; 1 - per-routine timing summary at exit; 2 - GPU-offload BLAS arguments and per-call migration timings; 3 - developer diagnosis (also prints CPU-path BLAS arguments, NUMA-location triples, and per-call timings). <br />
 - `SCILIB_MATRIX_OFFLOAD_SIZE=[size]` : size=(mnk)^(1/3), default is 500, the size above which GPU offload will occur.  <br />
 - `SCILIB_HBM_MALLOC_MB=[N]` : HBM-aware `malloc` interposer; allocations >= N MB are `mbind`-ed to HBM at allocation time. Default: on at **64 MB** threshold. Set to `0` to disable (allocations go through glibc unchanged). <br />
+- `SCILIB_HBM_MALLOC_ALIGN=[N]` : alignment (bytes, power of two) requested via `posix_memalign` for above-threshold allocations. Default **4096**. Stronger alignment than glibc's default 16-byte avoids extra memory transactions in cuBLAS's vectorised loads. <br />
 - `SCILIB_THPOFF=[0|1]` : 0 - default, use system default THP setting, 1 -- turn off THP.  <br />
 - `SCILIB_OFFLOAD_MODE=[1|2|3]`: different data movement strategies.  <br/>
   - S1: perform cudaMemCpy to/from GPU for every cuBLAS call;  (available on any GPU)  
@@ -106,16 +107,18 @@ This workload can perfectly scale from 25 nodes to 150 nodes, GH vs GG speedup 2
 
 **MuST single-node, HBM-aware malloc + MPS on/off**
 Same MuST code, smaller test case: LSMS CoCrFeMnNi on one Grace-Hopper node, 28 MPI ranks × 2 OpenMP threads, 3+ rep mean.
-| Method                                                       | App Total Runtime | Speedup vs CPU |
-|--------------------------------------------------------------|-------------------|----------------|
-| Pure CPU baseline (28×2, no offload)                         | 126.7 s           | 1.00×          |
-| SCILIB-Accel S3, `SCILIB_HBM_MALLOC_MB=0`, no MPS             | 32.2 s            | 3.94×          |
-| SCILIB-Accel S3, HBM-malloc default (64 MB), no MPS           | 26.5 s            | 4.78×          |
-| SCILIB-Accel S3, HBM-malloc default + **NVIDIA MPS**          | **23.8 s**        | **5.33×**      |
+| Method                                                            | App Total Runtime | Speedup vs CPU |
+|-------------------------------------------------------------------|-------------------|----------------|
+| Pure CPU baseline (28×2, no offload)                              | 126.7 s           | 1.00×          |
+| SCILIB-Accel S3, `SCILIB_HBM_MALLOC_MB=0`, no MPS                  | 32.2 s            | 3.94×          |
+| SCILIB-Accel S3, HBM-malloc default (64 MB, 16-byte), no MPS       | 26.5 s            | 4.78×          |
+| SCILIB-Accel S3, HBM-malloc + **NVIDIA MPS** (16-byte align)       | 23.8 s            | 5.33×          |
+| SCILIB-Accel S3, HBM-malloc + MPS + **4 KB align (new default)**   | **22.8 s**        | **5.55×**      |
 
-Two stacked wins:
+Three stacked wins:
 - The HBM-aware-malloc default places large allocations on HBM at `malloc` time, so BLAS wrappers skip the per-call migration.
 - Enabling **NVIDIA MPS** (Multi-Process Service) lets the 28 ranks share a CUDA context so their cuBLAS launches can overlap on the SMs instead of fully serialising.
+- Forcing large allocations to **4 KB page alignment** (via `posix_memalign` inside the interposer) eliminates the extra memory transactions that cuBLAS's vectorised loads pay on glibc's default 16-byte-aligned pointers. Override with `SCILIB_HBM_MALLOC_ALIGN=N` (power of two; default 4096).
 
 MPS is not a scilib-accel feature; it's an NVIDIA daemon (`nvidia-cuda-mps-control -d`) that's recommended for any many-rank-per-GPU workload. Persistence mode must be enabled and the GPU compute mode must be `Default`. `quick-test/run2.sh` starts MPS by default; set `MPS=0 ./run2.sh` to disable it.
 

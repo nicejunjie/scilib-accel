@@ -485,9 +485,16 @@ int in_str(const char* s1, char** s2) {
 //     0               : off (still interposed but no mbind)
 //     N>0             : on, N MB threshold
 
-#define HBM_MAL_DEFAULT_MB  64
-#define HBM_BOOT_BUF_SIZE   65536
+#define HBM_MAL_DEFAULT_MB     64
+#define HBM_BOOT_BUF_SIZE      65536
+// glibc malloc returns 16-byte-aligned pointers, which makes cuBLAS issue
+// extra memory transactions for its vectorised loads. For allocations >=
+// the HBM threshold we use posix_memalign() to force stronger alignment.
+// 4 KB matches the system page on most x86 / arm hosts and is a safe lower
+// bound for cuBLAS row alignment requirements.
+#define HBM_MAL_DEFAULT_ALIGN  4096
 static size_t hbm_mal_thresh = (size_t)HBM_MAL_DEFAULT_MB * 1024 * 1024;
+static size_t hbm_mal_align  = HBM_MAL_DEFAULT_ALIGN;
 static int    hbm_mal_inited = 0;
 static void *(*real_malloc_fn)(size_t) = NULL;
 static void *(*real_calloc_fn)(size_t, size_t) = NULL;
@@ -510,7 +517,20 @@ static void hbm_mal_init(void) {
         long v = atol(e);
         if (v >= 0) hbm_mal_thresh = (size_t)v * 1024 * 1024;
     }
+    const char *ea = getenv("SCILIB_HBM_MALLOC_ALIGN");
+    if (ea) {
+        long va = atol(ea);
+        if (va > 0 && (va & (va - 1)) == 0) hbm_mal_align = (size_t)va;
+    }
     hbm_mal_inited = 1;
+}
+
+// Allocate >= threshold-sized buffer with stronger alignment than glibc's
+// default. Returns NULL on failure (caller falls back to plain malloc).
+static void *hbm_aligned_alloc(size_t size) {
+    void *p = NULL;
+    if (posix_memalign(&p, hbm_mal_align, size) != 0) return NULL;
+    return p;
 }
 
 static void hbm_bind_range(void *p, size_t size) {
@@ -534,8 +554,14 @@ void *malloc(size_t size) {
         return p;
     }
     if (!hbm_mal_inited) hbm_mal_init();
-    void *p = real_malloc_fn(size);
-    if (p && hbm_mal_thresh && size >= hbm_mal_thresh) hbm_bind_range(p, size);
+    void *p;
+    if (hbm_mal_thresh && size >= hbm_mal_thresh) {
+        p = hbm_aligned_alloc(size);
+        if (!p) p = real_malloc_fn(size);   // fallback if posix_memalign fails
+        if (p) hbm_bind_range(p, size);
+    } else {
+        p = real_malloc_fn(size);
+    }
     return p;
 }
 
@@ -550,9 +576,16 @@ void *calloc(size_t n, size_t size) {
         return p;
     }
     if (!hbm_mal_inited) hbm_mal_init();
-    void *p = real_calloc_fn(n, size);
     size_t total = n * size;
-    if (p && hbm_mal_thresh && total >= hbm_mal_thresh) hbm_bind_range(p, total);
+    void *p;
+    if (hbm_mal_thresh && total >= hbm_mal_thresh) {
+        p = hbm_aligned_alloc(total);
+        if (!p) p = real_calloc_fn(n, size);
+        else    memset(p, 0, total);
+        if (p) hbm_bind_range(p, total);
+    } else {
+        p = real_calloc_fn(n, size);
+    }
     return p;
 }
 
@@ -560,7 +593,13 @@ void *realloc(void *ptr, size_t size) {
     if (!hbm_mal_inited) hbm_mal_init();
     if (hbm_is_boot(ptr)) {
         // bootstrap chunks aren't tracked — just give a fresh real alloc
-        void *p = real_malloc_fn(size);
+        void *p;
+        if (hbm_mal_thresh && size >= hbm_mal_thresh) {
+            p = hbm_aligned_alloc(size);
+            if (!p) p = real_malloc_fn(size);
+        } else {
+            p = real_malloc_fn(size);
+        }
         if (p && hbm_mal_thresh && size >= hbm_mal_thresh) hbm_bind_range(p, size);
         return p;
     }
