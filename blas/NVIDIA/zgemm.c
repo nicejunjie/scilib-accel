@@ -1,13 +1,10 @@
 #include "myblas.h"
 
 
-//#define GEMM3M 
-
-#ifdef GEMM3M
-#define _CUBLASZGEMM cublasZgemm3m
-#else 
-#define _CUBLASZGEMM cublasZgemm
-#endif
+// cublasZgemm3m (3-mult complex GEMM, ~25% faster) vs cublasZgemm, chosen at
+// runtime via SCILIB_GEMM3M (default off). See init.c.
+#define _CUBLASZGEMM(...) \
+    (scilib_gemm3m ? cublasZgemm3m(__VA_ARGS__) : cublasZgemm(__VA_ARGS__))
 
 #ifdef DBI
 #define _ZGEMM myzgemm

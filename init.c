@@ -14,6 +14,7 @@ int scilib_thpoff;                     //SCILIB_THPOFF
 int scilib_offload_mode;               //SCILIB_OFFLOAD_MODE
 char **scilib_offload_func;            //SCILIB_OFFLOAD_FUNC, only these comma separated funcs are intercepted in DBI.
 int scilib_hbm_numa;                   //SCILIB_HBM_NUMA
+int scilib_gemm3m;                     //SCILIB_GEMM3M, use cublas[CZ]gemm3m for complex GEMM
 
 
 void scilib_parse_env_var() {
@@ -38,7 +39,10 @@ void scilib_parse_env_var() {
 
     env_str = getenv("SCILIB_HBM_NUMA");
     scilib_hbm_numa = env_str ? atoi(env_str) : 1;
-     
+
+    env_str = getenv("SCILIB_GEMM3M");
+    scilib_gemm3m = env_str ? atoi(env_str) : 0;
+
 }
 
 /*

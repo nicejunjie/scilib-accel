@@ -142,6 +142,7 @@ The proxy reproduces the **sign** of each variant change (prefetch → slower, H
 | `SCILIB_DEBUG` | 0–3 verbosity | `0` (timing summary still printed at fini) |
 | `SCILIB_THPOFF` | turn off THP via prctl | `0` |
 | `SCILIB_HBM_NUMA` | target NUMA node for HBM | `1` |
+| `SCILIB_GEMM3M` | use `cublas[CZ]gemm3m` (3-mult complex GEMM, ~25% faster zgemm; last-ulp diff vs classic) for cgemm/zgemm | `0` (off) |
 
 ## Known caveats
 

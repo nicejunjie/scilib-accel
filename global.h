@@ -7,6 +7,7 @@ extern int scilib_thpoff;                 //SCILIB_THPOFF
 extern int scilib_offload_mode;           //SCILIB_OFFLOAD_MODE
 extern char **scilib_offload_func;        //SCILIB_OFFLOAD_FUNC
 extern int scilib_hbm_numa;               //SCILIB_HBM_NUMA
+extern int scilib_gemm3m;                 //SCILIB_GEMM3M
 
 
 extern int scilib_skip_flag;

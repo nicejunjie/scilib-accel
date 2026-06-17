@@ -1,10 +1,8 @@
 #include "myblas.h"
 
-#ifdef GEMM3M
-#define _CUBLASCGEMM cublasCgemm3m
-#else 
-#define _CUBLASCGEMM cublasCgemm
-#endif
+// cublasCgemm3m vs cublasCgemm, chosen at runtime via SCILIB_GEMM3M (default off).
+#define _CUBLASCGEMM(...) \
+    (scilib_gemm3m ? cublasCgemm3m(__VA_ARGS__) : cublasCgemm(__VA_ARGS__))
 
 #ifdef DBI
 #define _CGEMM mycgemm
