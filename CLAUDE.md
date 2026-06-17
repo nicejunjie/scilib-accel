@@ -154,6 +154,7 @@ The proxy reproduces the **sign** of each variant change (prefetch → slower, H
 
 Commits on `main` from this work (most recent first):
 
+- `a465f6d` Add `SCILIB_GEMM3M` runtime switch (was a compile-time `#define`) for `cublas[CZ]gemm3m`; add `NOTES_NVPL261_LAPACK_REGRESSION.md` (nvhpc 26.1 investigation).
 - `6eba2d9` Add missing `utils/gpu_migrate.{cu,h}` so the build is reproducible.
 - `85b17f2` Force ≥64 MB allocations to 4 KB alignment (~0.9 s faster on MuST).
 - `3be0157` README: document MPS (~10 % extra speedup, total 5.33× over CPU).
