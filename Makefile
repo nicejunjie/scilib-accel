@@ -5,9 +5,23 @@ CC = pgcc
 FC = pgf90
 
 NVHOME := $(shell pgf90_path=$$(which pgf90) && dirname "$$(dirname "$$(dirname "$$pgf90_path")")")
-CUBLAS = -lcublas  # $(NVHOME)/math_libs/lib64/libcublas.so
-CUSOLVER = -lcusolver  # $(NVHOME)/math_libs/lib64/libcusolver.so
-CURT = # $(NVHOME)/cuda/lib64/libcudart.so
+CUDA_VER := $(shell nvcc --version 2>/dev/null | sed -n 's/.*release \([0-9]*\.[0-9]*\).*/\1/p')
+
+# Locate cuBLAS/cuSolver. First directory containing libcublas.so wins:
+#   user override (make CUDA_MATH_LIB=...) > site module var > NVHPC versioned
+#   > NVHPC unversioned > standalone CUDA toolkit
+CUDA_MATH_CANDIDATES := $(CUDA_MATH_LIB) $(TACC_NVIDIA_MATH_LIB) \
+    $(if $(CUDA_VER),$(NVHOME)/math_libs/$(CUDA_VER)/lib64) \
+    $(NVHOME)/math_libs/lib64 \
+    $(if $(CUDA_HOME),$(CUDA_HOME)/lib64) /usr/local/cuda/lib64
+CUDA_MATH_LIB := $(firstword $(foreach d,$(CUDA_MATH_CANDIDATES),$(if $(wildcard $(d)/libcublas.so),$(d))))
+ifeq ($(CUDA_MATH_LIB),)
+  $(error libcublas.so not found in: $(CUDA_MATH_CANDIDATES). Set CUDA_MATH_LIB=/path/to/lib64)
+endif
+
+CUBLAS = -L$(CUDA_MATH_LIB) -Wl,-rpath,$(CUDA_MATH_LIB) -lcublas
+CUSOLVER = -lcusolver
+CURT =
 #CUINCLUDE = # $(NVHOME)/cuda/include
 
 GPUARCH=NVIDIA
@@ -54,13 +68,13 @@ OBJ2 = $(patsubst %.c,%-dl.o,$(COMMON_SRCS))  $(SRCS2:.c=.o) $(UTIL_CU_OBJ)
 
 all: dbi dl test_dgemm.x
 
-dbi: print-nvhome $(FRIDA_DIR) $(TARGET1)
+dbi: versions $(FRIDA_DIR) $(TARGET1)
 $(TARGET1): $(OBJ1) 
 	@echo "Building DBI based SCILIB-Accel"
 	$(CC) -o $@ -shared -ffunction-sections -fdata-sections $^ ./$(FRIDA_DIR)/libfrida-gum.a ${LD_FLAGS} ${CFLAGS} $(LIBS)	
 	chmod go+rx $(TARGET1)
 
-dl: print-nvhome $(TARGET2)
+dl: versions $(TARGET2)
 $(TARGET2): $(OBJ2)
 	@echo "Building DL based SCILIB-Accel"
 	$(CC) -o $@ -shared  $^  ${LD_FLAGS} ${CFLAGS} $(LIBS)
@@ -106,9 +120,28 @@ $(FRIDA_DIR)/$(FRIDA_DEVKIT_FILE):
 
 # ------------------------------------------------------------------------
 
-.PHONY: print-nvhome
-print-nvhome:
-	@echo "NVHOME = $(NVHOME)"
+NVPL_INC := $(firstword $(wildcard $(TACC_NVPL_INC) $(NVHOME)/math_libs/nvpl/include))
+
+# Print the toolchain and every dependency version (runs before dbi/dl).
+# Library versions come from the resolved .so filename (libX.so -> libX.so.M.m.p.b).
+.PHONY: versions print-nvhome
+print-nvhome: versions
+versions:
+	@echo "==================== scilib-accel build configuration ===================="
+	@echo "  NVHOME         : $(NVHOME)"
+	@echo "  CUDA_MATH_LIB  : $(CUDA_MATH_LIB)"
+	@echo "  CC             : $$($(CC) --version 2>/dev/null | sed -n 's/^\(.*[0-9][0-9]*\.[0-9][0-9]*-[0-9]*\).*/\1/p' | head -1)"
+	@echo "  FC             : $$($(FC) --version 2>/dev/null | sed -n 's/^\(.*[0-9][0-9]*\.[0-9][0-9]*-[0-9]*\).*/\1/p' | head -1)"
+	@echo "  nvcc / CUDA    : $$(nvcc --version 2>/dev/null | sed -n 's/.*release [^,]*, V\(.*\)/\1/p') ($$(which nvcc 2>/dev/null))"
+	@echo "  cuBLAS         : $$(basename $$(readlink -f $(CUDA_MATH_LIB)/libcublas.so) | sed 's/libcublas\.so\.//')"
+	@echo "  cuSolver       : $$(basename $$(readlink -f $(CUDA_MATH_LIB)/libcusolver.so) | sed 's/libcusolver\.so\.//')"
+	@echo "  NVPL BLAS      : $$(awk '/define NVPL_BLAS_VERSION_(MAJOR|MINOR|PATCH)/{v=v (v?".":"") $$3} END{print v?v:"not found"}' $(NVPL_INC)/nvpl_blas_version.h 2>/dev/null)"
+	@echo "  NVPL LAPACK    : $$(awk '/define NVPL_LAPACK_VERSION_(MAJOR|MINOR|PATCH)/{v=v (v?".":"") $$3} END{print v?v:"not found"}' $(NVPL_INC)/nvpl_lapack_version.h 2>/dev/null)"
+	@echo "  FRIDA gum      : $(FRIDA_VERSION) ($(CPUARCH)) $$([ -e $(FRIDA_DIR)/libfrida-gum.a ] && echo '[present]' || echo '[will download]')"
+	@echo "  libnuma        : $$(rpm -q --qf '%{VERSION}' numactl-libs 2>/dev/null || basename $$(readlink -f /usr/lib64/libnuma.so 2>/dev/null) 2>/dev/null)"
+	@echo "  glibc          : $$(ldd --version 2>/dev/null | head -1 | awk '{print $$NF}')"
+	@echo "  GPU driver     : $$(nvidia-smi --query-gpu=name,driver_version --format=csv,noheader 2>/dev/null | head -1 || true)$$(command -v nvidia-smi >/dev/null || echo 'n/a (no nvidia-smi on this node)')"
+	@echo "=========================================================================="
 
 
 # ---------------------- run tests ---------------------------------------
